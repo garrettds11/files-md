@@ -1,0 +1,72 @@
+name: Release
+
+# Push a tag like v0.1.0 to build files-md.exe and publish a GitHub release.
+# Can also be run by hand from the Actions tab (builds, uploads an artifact, no release).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      # --no-bundle: build just the portable .exe (no installer).
+      - run: npx tauri build --no-bundle
+
+      - name: Collect exe
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          Copy-Item src-tauri/target/release/files-md.exe out/files-md.exe
+          (Get-FileHash out/files-md.exe -Algorithm SHA256).Hash + "  files-md.exe" | Out-File -Encoding ascii out/files-md.exe.sha256
+
+      - uses: actions/upload-artifact@v4
+        id: upload-unsigned
+        with:
+          name: files-md-unsigned
+          path: out/files-md.exe
+
+      # ---------------------------------------------------------------
+      # Code signing via SignPath Foundation (enable after approval).
+      # 1. Add repo secret SIGNPATH_API_TOKEN and variable SIGNPATH_ORGANIZATION_ID.
+      # 2. Uncomment the step below and set the project/policy slugs SignPath gives you.
+      # 3. Change the release step to publish the signed exe from out-signed/.
+      # ---------------------------------------------------------------
+      # - name: Sign with SignPath
+      #   uses: signpath/github-action-submit-signing-request@v1
+      #   with:
+      #     api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+      #     organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+      #     project-slug: files-md
+      #     signing-policy-slug: release-signing
+      #     github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+      #     wait-for-completion: true
+      #     output-artifact-directory: out-signed
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          gh release create "${{ github.ref_name }}" out/files-md.exe out/files-md.exe.sha256 `
+            --title "Files.md ${{ github.ref_name }}" --generate-notes

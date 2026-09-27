@@ -1,0 +1,46 @@
+# Files.md
+
+A clean, portable Markdown reader for Windows. One `.exe`, no installer.
+
+- **Readable by default:** light, dark, or match Windows; adjustable font, text size, line spacing, and page width
+- **Headings pane:** jump to any heading, filter headings, current section highlighted as you scroll
+- **Opens how you'd expect:** double-click a `.md` file, drag a file onto the window, or File → Open
+- **Auto-reload:** re-renders when the file changes on disk
+- **Portable:** settings are saved to `files-md.settings.json` next to the exe
+
+## Download
+
+Grab `files-md.exe` from [Releases](https://github.com/garrettds11/files-md/releases) and put it anywhere. It uses Microsoft Edge WebView2, which ships with Windows 10 and 11.
+
+### Make it your default Markdown reader
+
+1. Right-click any `.md` file → **Open with** → **Choose another app**
+2. **Choose an app on your PC** → browse to `files-md.exe`
+3. Click **Always**
+
+## Keyboard shortcuts
+
+| Keys | Action |
+|---|---|
+| `Ctrl+O` | Open file |
+| `F5` | Reload |
+| `Ctrl+B` | Toggle headings pane |
+| `Ctrl+,` | Preferences |
+| `Ctrl+F` | Filter headings |
+| `Ctrl+=` / `Ctrl+-` / `Ctrl+0` | Text size |
+
+## Building
+
+Requires [Node.js](https://nodejs.org) LTS and [Rust](https://rustup.rs).
+
+```powershell
+npm install
+npm run tauri dev                    # run with hot reload
+npx tauri build --no-bundle          # portable exe -> src-tauri/target/release/files-md.exe
+```
+
+Releases are built by GitHub Actions: push a tag like `v0.1.0`.
+
+## License
+
+[MIT](LICENSE)

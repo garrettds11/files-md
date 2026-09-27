@@ -1,0 +1,147 @@
+// Thin wrapper around the native (Tauri) side, so the UI can also run in a
+// plain browser during development (`npm run dev`) with limited features.
+
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+let api = null;
+
+async function loadTauri() {
+  if (api) return api;
+  const [core, dialog, opener, webview, win] = await Promise.all([
+    import("@tauri-apps/api/core"),
+    import("@tauri-apps/plugin-dialog"),
+    import("@tauri-apps/plugin-opener"),
+    import("@tauri-apps/api/webview"),
+    import("@tauri-apps/api/window"),
+  ]);
+  api = { core, dialog, opener, webview, win };
+  return api;
+}
+
+const browserFiles = new Map(); // path -> content (dev mode only)
+
+export const platform = {
+  isTauri,
+
+  async initialFile() {
+    if (!isTauri) return null;
+    const { core } = await loadTauri();
+    return core.invoke("initial_file");
+  },
+
+  async readMarkdown(path) {
+    if (!isTauri) {
+      const content = browserFiles.get(path);
+      if (content == null) throw new Error(`Not available in browser mode: ${path}`);
+      return { path, name: path, dir: "", content, modified: 0 };
+    }
+    const { core } = await loadTauri();
+    return core.invoke("read_markdown", { path });
+  },
+
+  async fileModified(path) {
+    if (!isTauri) return 0;
+    const { core } = await loadTauri();
+    return core.invoke("file_modified", { path });
+  },
+
+  async loadSettings() {
+    if (!isTauri) {
+      try { return JSON.parse(localStorage.getItem("files-md.settings") || "{}"); } catch { return {}; }
+    }
+    const { core } = await loadTauri();
+    return core.invoke("load_settings");
+  },
+
+  async saveSettings(settings) {
+    if (!isTauri) {
+      try { localStorage.setItem("files-md.settings", JSON.stringify(settings)); } catch {}
+      return "browser storage";
+    }
+    const { core } = await loadTauri();
+    return core.invoke("save_settings", { settings });
+  },
+
+  async pickFile() {
+    if (!isTauri) {
+      return new Promise((resolve) => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = ".md,.markdown,.mdown,.mkd,.txt";
+        input.onchange = async () => {
+          const f = input.files?.[0];
+          if (!f) return resolve(null);
+          browserFiles.set(f.name, await f.text());
+          resolve(f.name);
+        };
+        input.click();
+      });
+    }
+    const { dialog } = await loadTauri();
+    const picked = await dialog.open({
+      multiple: false,
+      directory: false,
+      filters: [
+        { name: "Markdown", extensions: ["md", "markdown", "mdown", "mkd", "mkdn", "mdx", "txt"] },
+        { name: "All files", extensions: ["*"] },
+      ],
+    });
+    return typeof picked === "string" ? picked : picked?.path ?? null;
+  },
+
+  async openExternal(url) {
+    if (!isTauri) return window.open(url, "_blank", "noopener");
+    const { opener } = await loadTauri();
+    return opener.openUrl(url);
+  },
+
+  async setTitle(title) {
+    document.title = title;
+    if (!isTauri) return;
+    const { win } = await loadTauri();
+    return win.getCurrentWindow().setTitle(title);
+  },
+
+  async quit() {
+    if (!isTauri) return window.close();
+    const { win } = await loadTauri();
+    return win.getCurrentWindow().close();
+  },
+
+  /** Convert a local file path into a URL the webview can load (for images). */
+  fileUrl(path) {
+    if (!isTauri || !api) return path;
+    return api.core.convertFileSrc(path);
+  },
+
+  /** Native drag & drop gives real file paths; browser mode reads the file. */
+  async onDragDrop({ enter, leave, drop }) {
+    if (!isTauri) {
+      window.addEventListener("dragover", (e) => { e.preventDefault(); enter(); });
+      window.addEventListener("dragleave", (e) => { if (!e.relatedTarget) leave(); });
+      window.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        leave();
+        const f = e.dataTransfer?.files?.[0];
+        if (!f) return;
+        browserFiles.set(f.name, await f.text());
+        drop(f.name);
+      });
+      return;
+    }
+    const { webview } = await loadTauri();
+    await webview.getCurrentWebview().onDragDropEvent((event) => {
+      const p = event.payload;
+      if (p.type === "enter" || p.type === "over") enter();
+      else if (p.type === "leave") leave();
+      else if (p.type === "drop") {
+        leave();
+        if (p.paths?.length) drop(p.paths[0]);
+      }
+    });
+  },
+
+  async ready() {
+    if (isTauri) await loadTauri();
+  },
+};
