@@ -2,6 +2,8 @@
 
 A clean, portable Markdown reader for Windows. One `.exe`, no installer.
 
+![Files.md showing a document with the headings pane and dark theme](docs/screenshot.png)
+
 - **Readable by default:** light, dark, or match Windows; adjustable font, text size, line spacing, and page width
 - **Headings pane:** jump to any heading, filter headings, current section highlighted as you scroll
 - **Opens how you'd expect:** double-click a `.md` file, drag a file onto the window, or File → Open
@@ -42,6 +44,14 @@ npx tauri build --no-bundle          # portable exe -> src-tauri/target/release/
 ```
 
 Releases are built by GitHub Actions. To release, bump `version` in `src-tauri/tauri.conf.json` (and `package.json` / `src-tauri/Cargo.toml`) and push to `main`. The workflow builds `files-md.exe`, creates the `v<version>` tag, and publishes the release.
+
+## Code signing
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+## Privacy
+
+Files.md collects no data. It makes no network requests of its own and has no telemetry, analytics, or update checks. It only reads the files you open, and it stores your preferences in `files-md.settings.json` next to the exe on your own computer. Links in a document open in your web browser only when you click them, and remote images in a document are loaded from their websites when shown.
 
 ## License
 

@@ -268,7 +268,10 @@ function buildToc() {
     const num = document.createElement("span");
     num.className = "num";
     num.textContent = counters.slice(0, depth + 1).map((n) => n || 1).join(".");
-    a.append(num, document.createTextNode(h.text));
+    const label = document.createElement("span");
+    label.className = "label";
+    label.textContent = h.text;
+    a.append(num, label);
     li.appendChild(a);
     list.appendChild(li);
   }

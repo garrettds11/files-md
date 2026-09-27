@@ -193,6 +193,7 @@ body:not(.has-doc) .toc, body:not(.has-doc) .toc-resizer { display: none; }
   text-transform: uppercase;
   color: var(--text-muted);
 }
+.toc-header input::placeholder { color: var(--text-faint); opacity: 1; }
 .toc-header input {
   flex: 1;
   min-width: 0;
@@ -222,11 +223,15 @@ body:not(.has-doc) .toc, body:not(.has-doc) .toc-resizer { display: none; }
   color: var(--text-muted);
   text-decoration: none;
   line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
-#toc-list li[style*="--depth: 0"] a { color: var(--text); font-weight: 600; }
+#toc-list li a .label {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+#toc-list li[style*="--depth: 0"] a { color: var(--text); font-weight: 500; }
+#toc-list li[style*="--depth: 0"]:not(:first-child) { margin-top: 2px; }
 #toc-list li a:hover { background: var(--bg-hover); color: var(--text); }
 #toc-list li.active a { background: var(--bg-active); color: var(--accent); }
 #toc-list .num { display: none; color: var(--text-faint); font-variant-numeric: tabular-nums; }
