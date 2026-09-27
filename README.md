@@ -2,7 +2,11 @@
 
 A clean, portable Markdown reader for Windows. One `.exe`, no installer.
 
-![Files.md showing a document with the headings pane and dark theme](docs/screenshot.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/screenshot-light.png">
+  <img alt="Files.md showing a document with the headings pane and the Preferences panel" src="docs/screenshot-light.png">
+</picture>
 
 - **Readable by default:** light, dark, or match Windows; adjustable font, text size, line spacing, and page width
 - **Headings pane:** jump to any heading, filter headings, current section highlighted as you scroll

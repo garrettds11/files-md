@@ -255,6 +255,8 @@ function buildToc() {
   list.innerHTML = "";
   const min = Math.min(...doc.headings.map((h) => h.level), 6);
   const counters = [0, 0, 0, 0, 0, 0];
+  // A single top-level title (e.g. one H1) isn't numbered; its sections become 1, 2, 3…
+  const skipTitle = doc.headings.filter((h) => h.level === min).length === 1 && doc.headings.length > 1;
   for (const h of doc.headings) {
     const depth = h.level - min;
     counters[depth]++;
@@ -267,7 +269,8 @@ function buildToc() {
     a.title = h.text;
     const num = document.createElement("span");
     num.className = "num";
-    num.textContent = counters.slice(0, depth + 1).map((n) => n || 1).join(".");
+    const parts = counters.slice(skipTitle ? 1 : 0, depth + 1).map((n) => n || 1);
+    num.textContent = parts.join(".");
     const label = document.createElement("span");
     label.className = "label";
     label.textContent = h.text;
@@ -477,7 +480,7 @@ const actions = {
       <p>If you move the .exe later, repeat these steps.</p>`);
   },
   about() {
-    showDialog(`<h2>Files.md</h2><p>Version 0.1.0</p>
+    showDialog(`<h2>Files.md</h2><p>Version 0.1.1</p>
       <p>A clean, portable Markdown reader for Windows.</p>
       <p><a href="https://github.com/garrettds11/files-md" data-external>github.com/garrettds11/files-md</a></p>`);
   },
