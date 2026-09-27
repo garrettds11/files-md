@@ -17,6 +17,8 @@ const DEFAULTS = {
   tocWidth: 260,
   wrapCode: false,
   autoReload: true,
+  editor: "notepad", // notepad | vscode | notepadpp | custom
+  editorPath: "",
   recent: [],
 };
 
@@ -56,6 +58,10 @@ function applySettings() {
   document.body.classList.toggle("toc-hidden", !settings.showToc);
   document.body.classList.toggle("toc-numbers", settings.tocNumbers);
   document.body.classList.toggle("wrap-code", settings.wrapCode);
+  document.body.classList.toggle("editor-custom", settings.editor === "custom");
+  const names = { notepad: "Notepad", vscode: "VS Code", notepadpp: "Notepad++" };
+  const customName = settings.editorPath.split(/[\\/]/).pop().replace(/\.exe$/i, "");
+  for (const el of $$(".editor-name")) el.textContent = names[settings.editor] || customName || "editor";
   syncPrefControls();
   setupAutoReload();
 }
@@ -83,6 +89,8 @@ function bindPrefControls() {
       });
     } else if (el.type === "checkbox") {
       el.addEventListener("change", () => setPref(key, el.checked));
+    } else if (el.type === "text") {
+      el.addEventListener("change", () => setPref(key, el.value.trim().replace(/^"|"$/g, "")));
     } else if (el.type === "range") {
       el.addEventListener("input", () => setPref(key, Number(el.value)));
     } else {
@@ -406,6 +414,18 @@ const actions = {
     const p = await platform.pickFile();
     if (p) openFile(p);
   },
+  async edit() {
+    if (!doc.path) return;
+    try {
+      await platform.openInEditor(doc.path, settings.editor, settings.editorPath);
+    } catch (e) {
+      toast(String(e));
+    }
+  },
+  async "browse-editor"() {
+    const exe = await platform.pickExecutable();
+    if (exe) setPref("editorPath", exe);
+  },
   reload() { if (doc.path) openFile(doc.path, { keepScroll: true }); },
   async "copy-path"() {
     if (!doc.path) return;
@@ -431,6 +451,7 @@ const actions = {
     showDialog(`<h2>Keyboard shortcuts</h2>
       <table class="kbd-table">
         <tr><td><kbd>Ctrl+O</kbd></td><td>Open a file</td></tr>
+        <tr><td><kbd>Ctrl+E</kbd></td><td>Edit in your editor</td></tr>
         <tr><td><kbd>F5</kbd></td><td>Reload</td></tr>
         <tr><td><kbd>Ctrl+B</kbd></td><td>Show / hide headings pane</td></tr>
         <tr><td><kbd>Ctrl+,</kbd></td><td>Preferences</td></tr>
@@ -482,7 +503,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "F5") { e.preventDefault(); actions.reload(); return; }
   if (!ctrl) return;
   const map = {
-    o: "open", b: "toggle-toc", ",": "toggle-prefs", q: "quit", r: "reload",
+    o: "open", e: "edit", b: "toggle-toc", ",": "toggle-prefs", q: "quit", r: "reload",
     "=": "zoom-in", "+": "zoom-in", "-": "zoom-out", "0": "zoom-reset",
   };
   if (key === "f" && settings.showToc && doc.path) {
@@ -516,6 +537,15 @@ function showDialog(html) {
   $("#dialog").showModal();
 }
 
+// Label editors that aren't installed so the choice is obvious.
+async function markInstalledEditors() {
+  const found = new Set(await platform.detectEditors().catch(() => []));
+  for (const opt of $("#editor-select").options) {
+    if (opt.value === "custom") continue;
+    if (!found.has(opt.value)) opt.textContent += " (not found)";
+  }
+}
+
 // ---------------------------------------------------------------- start
 
 async function start() {
@@ -524,6 +554,7 @@ async function start() {
   bindPrefControls();
   applySettings();
   renderRecent();
+  markInstalledEditors();
 
   await platform.onDragDrop({
     enter: () => document.body.classList.add("dragging"),

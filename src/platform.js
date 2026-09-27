@@ -89,6 +89,30 @@ export const platform = {
     return typeof picked === "string" ? picked : picked?.path ?? null;
   },
 
+  async detectEditors() {
+    if (!isTauri) return ["notepad", "vscode", "notepadpp"];
+    const { core } = await loadTauri();
+    return core.invoke("detect_editors");
+  },
+
+  async openInEditor(path, editor, customPath) {
+    if (!isTauri) throw new Error("Opening an editor only works in the desktop app");
+    const { core } = await loadTauri();
+    return core.invoke("open_in_editor", { path, editor, customPath: customPath || null });
+  },
+
+  async pickExecutable() {
+    if (!isTauri) return null;
+    const { dialog } = await loadTauri();
+    const picked = await dialog.open({
+      multiple: false,
+      directory: false,
+      title: "Choose your editor",
+      filters: [{ name: "Programs", extensions: ["exe"] }],
+    });
+    return typeof picked === "string" ? picked : picked?.path ?? null;
+  },
+
   async openExternal(url) {
     if (!isTauri) return window.open(url, "_blank", "noopener");
     const { opener } = await loadTauri();

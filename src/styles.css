@@ -472,3 +472,27 @@ kbd { font-family: var(--font-ui); }
 @media (max-width: 700px) {
   .markdown-body { padding: 24px 22px 30vh; }
 }
+
+/* ---------------------------------------------------------------- editor pref */
+
+.custom-editor { display: none; margin-top: -8px; }
+body.editor-custom .custom-editor { display: flex; }
+.path-row { display: flex; gap: 6px; }
+.path-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  font-size: 12px;
+}
+.path-row button {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elev);
+}
+.path-row button:hover { background: var(--bg-hover); }
+body:not(.has-doc) .needs-doc { display: none; }
+.field select option:disabled { color: var(--text-faint); }

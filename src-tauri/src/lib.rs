@@ -107,6 +107,76 @@ fn save_settings(app: AppHandle, settings: Value) -> Result<String, String> {
     Ok(p.to_string_lossy().to_string())
 }
 
+// ------------------------------------------------------------ external editors
+
+fn env_path(var: &str, rest: &str) -> Option<PathBuf> {
+    std::env::var_os(var).map(|v| PathBuf::from(v).join(rest))
+}
+
+fn search_path(file: &str) -> Option<PathBuf> {
+    let paths = std::env::var_os("PATH")?;
+    std::env::split_paths(&paths)
+        .map(|d| d.join(file))
+        .find(|p| p.is_file())
+}
+
+/// Locate a known editor's executable. Returns None if it isn't installed.
+fn find_editor(id: &str) -> Option<PathBuf> {
+    let candidates: Vec<Option<PathBuf>> = match id {
+        "notepad" => vec![
+            env_path("SystemRoot", r"System32\notepad.exe"),
+            Some(PathBuf::from("notepad.exe")),
+        ],
+        "vscode" => vec![
+            env_path("LOCALAPPDATA", r"Programs\Microsoft VS Code\Code.exe"),
+            env_path("ProgramFiles", r"Microsoft VS Code\Code.exe"),
+            env_path("ProgramFiles(x86)", r"Microsoft VS Code\Code.exe"),
+            // `code` on PATH lives in ...\Microsoft VS Code\bin\code.cmd
+            search_path("code.cmd")
+                .and_then(|p| p.parent()?.parent().map(|d| d.join("Code.exe"))),
+        ],
+        "notepadpp" => vec![
+            env_path("ProgramFiles", r"Notepad++\notepad++.exe"),
+            env_path("ProgramFiles(x86)", r"Notepad++\notepad++.exe"),
+            search_path("notepad++.exe"),
+        ],
+        _ => vec![],
+    };
+    candidates.into_iter().flatten().find(|p| {
+        // Bare names (notepad.exe) are resolved by Windows at launch.
+        p.components().count() == 1 || p.is_file()
+    })
+}
+
+/// Which of the known editors are installed on this PC.
+#[tauri::command]
+fn detect_editors() -> Vec<String> {
+    ["notepad", "vscode", "notepadpp"]
+        .iter()
+        .filter(|id| find_editor(id).is_some())
+        .map(|s| s.to_string())
+        .collect()
+}
+
+/// Open `path` in the chosen editor. `editor` is notepad | vscode | notepadpp | custom.
+#[tauri::command]
+fn open_in_editor(path: String, editor: String, custom_path: Option<String>) -> Result<(), String> {
+    let exe = if editor == "custom" {
+        let c = custom_path.unwrap_or_default();
+        if c.trim().is_empty() {
+            return Err("No custom editor chosen. Pick one in Preferences.".into());
+        }
+        PathBuf::from(c.trim())
+    } else {
+        find_editor(&editor).ok_or_else(|| format!("Couldn't find {editor} on this PC. Choose another editor in Preferences."))?
+    };
+    std::process::Command::new(&exe)
+        .arg(&path)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("Couldn't start {}: {e}", exe.display()))
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -117,7 +187,9 @@ pub fn run() {
             read_markdown,
             file_modified,
             load_settings,
-            save_settings
+            save_settings,
+            detect_editors,
+            open_in_editor
         ])
         .run(tauri::generate_context!())
         .expect("error while running Files.md");

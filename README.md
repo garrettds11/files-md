@@ -5,7 +5,8 @@ A clean, portable Markdown reader for Windows. One `.exe`, no installer.
 - **Readable by default:** light, dark, or match Windows; adjustable font, text size, line spacing, and page width
 - **Headings pane:** jump to any heading, filter headings, current section highlighted as you scroll
 - **Opens how you'd expect:** double-click a `.md` file, drag a file onto the window, or File → Open
-- **Auto-reload:** re-renders when the file changes on disk
+- **Edit in your editor:** Ctrl+E opens the file in Notepad, VS Code, Notepad++, or any editor you pick
+- **Auto-reload:** re-renders when the file changes on disk, so edits show up as you save
 - **Portable:** settings are saved to `files-md.settings.json` next to the exe
 
 ## Download
@@ -23,6 +24,7 @@ Grab `files-md.exe` from [Releases](https://github.com/garrettds11/files-md/rele
 | Keys | Action |
 |---|---|
 | `Ctrl+O` | Open file |
+| `Ctrl+E` | Edit in your editor (Notepad, VS Code, Notepad++, or any .exe — set in Preferences) |
 | `F5` | Reload |
 | `Ctrl+B` | Toggle headings pane |
 | `Ctrl+,` | Preferences |

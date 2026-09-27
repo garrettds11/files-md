@@ -16,6 +16,7 @@
             <button class="submenu-button">Open recent<span class="chev">›</span></button>
             <div class="menu-list" id="recent-list" role="menu"></div>
           </div>
+          <button data-action="edit">Edit in <span class="editor-name">editor</span><kbd>Ctrl+E</kbd></button>
           <hr />
           <button data-action="reload">Reload<kbd>F5</kbd></button>
           <button data-action="copy-path">Copy file path</button>
@@ -48,6 +49,9 @@
       </div>
       <div class="menubar-title" id="doc-title">Files.md</div>
       <div class="menubar-tools">
+        <button class="icon-btn needs-doc" data-action="edit" title="Edit in editor (Ctrl+E)" aria-label="Edit in editor">
+          <svg viewBox="0 0 20 20" width="18" height="18"><path d="M12.5 4.5l3 3M4 16l1-4 8.5-8.5a1.4 1.4 0 012 0l1 1a1.4 1.4 0 010 2L8 15l-4 1z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" fill="none"/></svg>
+        </button>
         <button class="icon-btn" data-action="toggle-toc" title="Headings pane (Ctrl+B)" aria-label="Toggle headings pane">
           <svg viewBox="0 0 20 20" width="18" height="18"><path d="M3 4h14M3 8h9M3 12h11M3 16h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
         </button>
@@ -111,6 +115,21 @@
             <button value="narrow">Narrow</button><button value="medium">Medium</button><button value="wide">Wide</button><button value="full">Full</button>
           </div>
         </label>
+        <label class="field">
+          <span>Editor for Ctrl+E</span>
+          <select data-pref="editor" id="editor-select">
+            <option value="notepad">Notepad</option>
+            <option value="vscode">Visual Studio Code</option>
+            <option value="notepadpp">Notepad++</option>
+            <option value="custom">Other…</option>
+          </select>
+        </label>
+        <div class="field custom-editor" id="custom-editor">
+          <div class="path-row">
+            <input type="text" data-pref="editorPath" placeholder="C:\path\to\editor.exe" spellcheck="false" />
+            <button data-action="browse-editor">Browse…</button>
+          </div>
+        </div>
         <label class="check"><input type="checkbox" data-pref="showToc" /> Show headings pane</label>
         <label class="check"><input type="checkbox" data-pref="tocNumbers" /> Number headings in pane</label>
         <label class="check"><input type="checkbox" data-pref="wrapCode" /> Wrap long code lines</label>
