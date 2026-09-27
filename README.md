@@ -41,7 +41,7 @@ npm run tauri dev                    # run with hot reload
 npx tauri build --no-bundle          # portable exe -> src-tauri/target/release/files-md.exe
 ```
 
-Releases are built by GitHub Actions: push a tag like `v0.1.0`.
+Releases are built by GitHub Actions. To release, bump `version` in `src-tauri/tauri.conf.json` (and `package.json` / `src-tauri/Cargo.toml`) and push to `main`. The workflow builds `files-md.exe`, creates the `v<version>` tag, and publishes the release.
 
 ## License
 
