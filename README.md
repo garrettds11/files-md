@@ -11,6 +11,9 @@ A clean, portable Markdown reader for Windows. One `.exe`, no installer.
 - **Readable by default:** light, dark, or match Windows; adjustable font, text size, line spacing, and page width
 - **Headings pane:** jump to any heading, filter headings, current section highlighted as you scroll
 - **Opens how you'd expect:** double-click a `.md` file, drag a file onto the window, or File → Open
+- **Code that's easy to read:** syntax colors for 40+ languages, with a one-click Copy button
+- **Read aloud:** listen to any document using Windows' built-in voices (offline), or an optional remote speech service. Audio is cached, so replaying is instant
+- **Print / Save as PDF:** clean printouts in light colors, without the app's menus and panes
 - **Edit in your editor:** Ctrl+E opens the file in Notepad, VS Code, Notepad++, or any editor you pick
 - **Auto-reload:** re-renders when the file changes on disk, so edits show up as you save
 - **Portable:** settings are saved to `files-md.settings.json` next to the exe
@@ -32,6 +35,8 @@ Grab `files-md.exe` from [Releases](https://github.com/garrettds11/files-md/rele
 | `Ctrl+O` | Open file |
 | `Ctrl+E` | Edit in your editor (Notepad, VS Code, Notepad++, or any .exe — set in Preferences) |
 | `F5` | Reload |
+| `Ctrl+P` | Print / Save as PDF |
+| `Ctrl+Shift+U` | Read aloud |
 | `Ctrl+B` | Toggle headings pane |
 | `Ctrl+,` | Preferences |
 | `Ctrl+F` | Filter headings |
@@ -56,6 +61,8 @@ Free code signing provided by [SignPath.io](https://about.signpath.io), certific
 ## Privacy
 
 Files.md collects no data. It makes no network requests of its own and has no telemetry, analytics, or update checks. It only reads the files you open, and it stores your preferences in `files-md.settings.json` next to the exe on your own computer. Links in a document open in your web browser only when you click them, and remote images in a document are loaded from their websites when shown.
+
+**Read aloud.** By default, read aloud uses the voices built into Windows and runs entirely on your computer; nothing is sent anywhere. If you choose **Remote service** in Preferences, the text of the document you're listening to is sent to the speech endpoint you configure (for example, OpenAI), and that provider's privacy policy applies. Remote speech is off unless you turn it on. Your API key is stored in plain text in the settings file. Generated audio is cached in `%LOCALAPPDATA%\io.github.garrettds11.filesmd\tts-cache`, named by an MD5 hash of the text and voice settings; clear it any time from Preferences.
 
 ## License
 

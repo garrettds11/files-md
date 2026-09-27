@@ -1,3 +1,5 @@
+mod tts;
+
 use serde::Serialize;
 use serde_json::Value;
 use std::fs;
@@ -177,6 +179,12 @@ fn open_in_editor(path: String, editor: String, custom_path: Option<String>) -> 
         .map_err(|e| format!("Couldn't start {}: {e}", exe.display()))
 }
 
+/// Open the system print dialog (includes "Save as PDF" / "Microsoft Print to PDF").
+#[tauri::command]
+fn print_page(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.print().map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -189,7 +197,13 @@ pub fn run() {
             load_settings,
             save_settings,
             detect_editors,
-            open_in_editor
+            open_in_editor,
+            print_page,
+            tts::tts_lookup,
+            tts::tts_generate,
+            tts::tts_voices,
+            tts::tts_cache_info,
+            tts::tts_cache_clear
         ])
         .run(tauri::generate_context!())
         .expect("error while running Files.md");

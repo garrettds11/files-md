@@ -1,4 +1,10 @@
 import MarkdownIt from "markdown-it";
+import hljs from "highlight.js/lib/common";
+import powershell from "highlight.js/lib/languages/powershell";
+import dockerfile from "highlight.js/lib/languages/dockerfile";
+import dos from "highlight.js/lib/languages/dos";
+import nginx from "highlight.js/lib/languages/nginx";
+import protobuf from "highlight.js/lib/languages/protobuf";
 import { platform } from "./platform.js";
 
 const $ = (sel) => document.querySelector(sel);
@@ -16,6 +22,15 @@ const DEFAULTS = {
   tocNumbers: false,
   tocWidth: 260,
   wrapCode: false,
+  syntax: true,
+  ttsEngine: "local", // local | remote
+  ttsVoice: "",
+  ttsRate: 1,
+  ttsSkipCode: true,
+  ttsRemoteUrl: "https://api.openai.com/v1/audio/speech",
+  ttsRemoteKey: "",
+  ttsRemoteModel: "gpt-4o-mini-tts",
+  ttsRemoteVoice: "alloy",
   autoReload: true,
   editor: "notepad", // notepad | vscode | notepadpp | custom
   editorPath: "",
@@ -41,6 +56,8 @@ function setPref(key, value) {
   settings[key] = value;
   applySettings();
   saveSettings();
+  if (key === "syntax" && doc.path) openFile(doc.path, { keepScroll: true });
+  if (key.startsWith("tts") && key !== "ttsRate") tts.settingsChanged();
 }
 
 const systemDark = window.matchMedia("(prefers-color-scheme: dark)");
@@ -59,6 +76,7 @@ function applySettings() {
   document.body.classList.toggle("toc-numbers", settings.tocNumbers);
   document.body.classList.toggle("wrap-code", settings.wrapCode);
   document.body.classList.toggle("editor-custom", settings.editor === "custom");
+  document.body.classList.toggle("tts-remote-on", settings.ttsEngine === "remote");
   const names = { notepad: "Notepad", vscode: "VS Code", notepadpp: "Notepad++" };
   const customName = settings.editorPath.split(/[\\/]/).pop().replace(/\.exe$/i, "");
   for (const el of $$(".editor-name")) el.textContent = names[settings.editor] || customName || "editor";
@@ -89,7 +107,7 @@ function bindPrefControls() {
       });
     } else if (el.type === "checkbox") {
       el.addEventListener("change", () => setPref(key, el.checked));
-    } else if (el.type === "text") {
+    } else if (el.type === "text" || el.type === "password") {
       el.addEventListener("change", () => setPref(key, el.value.trim().replace(/^"|"$/g, "")));
     } else if (el.type === "range") {
       el.addEventListener("input", () => setPref(key, Number(el.value)));
@@ -101,7 +119,39 @@ function bindPrefControls() {
 
 // ---------------------------------------------------------------- markdown
 
-const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+hljs.registerLanguage("powershell", powershell);
+hljs.registerLanguage("dockerfile", dockerfile);
+hljs.registerLanguage("dos", dos);
+hljs.registerLanguage("nginx", nginx);
+hljs.registerLanguage("protobuf", protobuf);
+hljs.registerAliases(["ps1", "pwsh", "ps"], { languageName: "powershell" });
+hljs.registerAliases(["bat", "cmd", "batch"], { languageName: "dos" });
+hljs.registerAliases(["toml"], { languageName: "ini" });
+hljs.registerAliases(["jsonc", "json5"], { languageName: "json" });
+
+const escapeHtml = (s) =>
+  s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  typographer: true,
+  // Colors code blocks by language. Unknown or missing language = plain text
+  // (no auto-detection: guessing often colors prose/logs wrongly).
+  highlight(code, lang) {
+    const name = (lang || "").trim().toLowerCase();
+    if (settings.syntax && name && hljs.getLanguage(name)) {
+      try {
+        return hljs.highlight(code, { language: name, ignoreIllegals: true }).value;
+      } catch {}
+    }
+    return escapeHtml(code);
+  },
+});
+
+// Only auto-link full URLs (https://…). Without this, "README.md"
+// becomes a link, because .md is a top-level domain.
+md.linkify.set({ fuzzyLink: false, fuzzyEmail: false });
 
 function slugify(text) {
   return (
@@ -189,12 +239,44 @@ async function openFile(path, { keepScroll = false } = {}) {
   content.scrollTop = scroll;
   updateActiveHeading();
 
+  tts.documentChanged();
+
   settings.recent = [file.path, ...settings.recent.filter((p) => p !== file.path)].slice(0, 10);
   saveSettings();
   renderRecent();
 }
 
 function fixupContent(article) {
+  // Code blocks: language label + Copy button.
+  for (const pre of article.querySelectorAll("pre")) {
+    const code = pre.querySelector("code");
+    if (!code) continue;
+    const lang = [...code.classList].find((c) => c.startsWith("language-"))?.slice(9) || "";
+    const known = lang && hljs.getLanguage(lang);
+    const bar = document.createElement("div");
+    bar.className = "code-bar";
+    const label = document.createElement("span");
+    label.textContent = known ? known.name.split(/[ ,]/)[0] : lang;
+    const copy = document.createElement("button");
+    copy.className = "copy-btn";
+    copy.type = "button";
+    copy.textContent = "Copy";
+    copy.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      try {
+        await navigator.clipboard.writeText(code.textContent);
+        copy.textContent = "Copied";
+      } catch {
+        copy.textContent = "Couldn't copy";
+      }
+      setTimeout(() => (copy.textContent = "Copy"), 1500);
+    });
+    bar.append(label, copy);
+    pre.classList.add(label.textContent ? "has-bar" : "no-lang");
+    pre.prepend(bar);
+    if (known && settings.syntax) code.classList.add("hljs");
+  }
+
   // Local images: resolve relative to the Markdown file's folder.
   for (const img of article.querySelectorAll("img[src]")) {
     const src = img.getAttribute("src");
@@ -438,6 +520,27 @@ const actions = {
     await navigator.clipboard.writeText(doc.path);
     toast("File path copied");
   },
+  async print() {
+    if (!doc.path) return toast("Open a file to print it");
+    closeMenus();
+    try {
+      await platform.print();
+    } catch (e) {
+      toast(`Couldn't open the print dialog: ${e}`);
+    }
+  },
+  "read-aloud"() { tts.toggle(); },
+  async "tts-clear-cache"() {
+    tts.stop();
+    try {
+      await platform.ttsCacheClear();
+      toast("Audio cache cleared");
+    } catch (e) {
+      toast(String(e));
+    }
+    tts.refreshCacheInfo();
+    tts.documentChanged();
+  },
   quit() { platform.quit(); },
   "toggle-toc"() { setPref("showToc", !settings.showToc); },
   "toggle-prefs"() { document.body.classList.toggle("prefs-open"); },
@@ -458,6 +561,9 @@ const actions = {
       <table class="kbd-table">
         <tr><td><kbd>Ctrl+O</kbd></td><td>Open a file</td></tr>
         <tr><td><kbd>Ctrl+E</kbd></td><td>Edit in your editor</td></tr>
+        <tr><td><kbd>Ctrl+P</kbd></td><td>Print / Save as PDF</td></tr>
+        <tr><td><kbd>Ctrl+Shift+U</kbd></td><td>Read aloud</td></tr>
+        <tr><td><kbd>Space</kbd></td><td>Play / pause (while reading aloud)</td></tr>
         <tr><td><kbd>F5</kbd></td><td>Reload</td></tr>
         <tr><td><kbd>Ctrl+B</kbd></td><td>Show / hide headings pane</td></tr>
         <tr><td><kbd>Ctrl+,</kbd></td><td>Preferences</td></tr>
@@ -507,9 +613,10 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (e.key === "F5") { e.preventDefault(); actions.reload(); return; }
+  if (ctrl && e.shiftKey && key === "u") { e.preventDefault(); actions["read-aloud"](); return; }
   if (!ctrl) return;
   const map = {
-    o: "open", e: "edit", b: "toggle-toc", ",": "toggle-prefs", q: "quit", r: "reload",
+    o: "open", e: "edit", p: "print", b: "toggle-toc", ",": "toggle-prefs", q: "quit", r: "reload",
     "=": "zoom-in", "+": "zoom-in", "-": "zoom-out", "0": "zoom-reset",
   };
   if (key === "f" && settings.showToc && doc.path) {
@@ -543,6 +650,240 @@ function showDialog(html) {
   $("#dialog").showModal();
 }
 
+// ---------------------------------------------------------------- read aloud
+
+/** Plain text to speak, built from the rendered document. */
+function speechText() {
+  const article = $("#doc").cloneNode(true);
+  article.querySelectorAll(".code-bar").forEach((n) => n.remove());
+  const parts = [];
+  const walk = (el) => {
+    for (const node of el.children) {
+      const tag = node.tagName;
+      if (tag === "PRE") {
+        parts.push(settings.ttsSkipCode ? "Code sample skipped." : node.textContent.trim());
+      } else if (/^H[1-6]$/.test(tag)) {
+        parts.push(`${node.textContent.trim()}.`);
+      } else if (tag === "UL" || tag === "OL") {
+        for (const li of node.children) {
+          const clone = li.cloneNode(true);
+          clone.querySelectorAll("ul, ol").forEach((n) => n.remove());
+          const t = clone.textContent.trim();
+          if (t) parts.push(/[.!?:]$/.test(t) ? t : `${t}.`);
+          li.querySelectorAll(":scope > ul, :scope > ol").forEach((n) => walk({ children: [n] }));
+        }
+      } else if (node.classList?.contains("table-wrap") || tag === "TABLE") {
+        for (const row of node.querySelectorAll("tr")) {
+          const cells = [...row.children].map((c) => c.textContent.trim()).filter(Boolean);
+          if (cells.length) parts.push(`${cells.join(", ")}.`);
+        }
+      } else if (tag === "BLOCKQUOTE" || tag === "DIV") {
+        walk(node);
+      } else if (tag === "HR") {
+        continue;
+      } else {
+        for (const img of node.querySelectorAll("img[alt]")) {
+          if (img.alt.trim()) img.replaceWith(` Image: ${img.alt.trim()}. `);
+        }
+        const t = node.textContent.replace(/\s+/g, " ").trim();
+        if (t) parts.push(t);
+      }
+    }
+  };
+  walk(article);
+  return parts.join("\n\n");
+}
+
+const fmtTime = (sec) => {
+  if (!isFinite(sec)) return "0:00";
+  sec = Math.floor(sec);
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s2 = sec % 60;
+  return h ? `${h}:${String(m).padStart(2, "0")}:${String(s2).padStart(2, "0")}` : `${m}:${String(s2).padStart(2, "0")}`;
+};
+
+const fmtBytes = (n) => (n < 1024 * 1024 ? `${Math.round(n / 1024)} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
+
+const tts = (() => {
+  const audio = $("#tts-audio");
+  const bar = $("#tts-bar");
+  const status = $("#tts-status");
+  let open = false;
+  let loadedHash = null;
+  let busy = false;
+  let requestId = 0;
+
+  function request() {
+    return {
+      text: speechText(),
+      engine: settings.ttsEngine,
+      voice: settings.ttsVoice,
+      remoteUrl: settings.ttsRemoteUrl,
+      remoteKey: settings.ttsRemoteKey,
+      remoteModel: settings.ttsRemoteModel,
+      remoteVoice: settings.ttsRemoteVoice,
+    };
+  }
+
+  function setStatus(text, kind = "") {
+    status.textContent = text;
+    status.dataset.kind = kind;
+  }
+
+  function setPlaying(on) {
+    bar.classList.toggle("playing", on);
+    $("#tts-play").setAttribute("aria-label", on ? "Pause" : "Play");
+  }
+
+  function load(result, autoplay) {
+    loadedHash = result.hash;
+    audio.src = platform.fileUrl(result.path);
+    audio.playbackRate = settings.ttsRate;
+    setStatus(result.cached ? "Cached audio" : `Audio ready · ${fmtBytes(result.bytes)}`);
+    refreshCacheInfo();
+    if (autoplay) audio.play().catch((e) => setStatus(`Couldn't play: ${e.message}`, "error"));
+  }
+
+  async function prepare(autoplay) {
+    if (!doc.path) return;
+    const id = ++requestId;
+    const req = request();
+    try {
+      const hit = await platform.ttsLookup(req);
+      if (id !== requestId) return;
+      if (hit) return load(hit, autoplay);
+    } catch {}
+    if (!autoplay) {
+      setStatus("Press play to generate audio");
+      return;
+    }
+    busy = true;
+    bar.classList.add("busy");
+    setStatus(settings.ttsEngine === "remote" ? "Generating audio with remote service…" : "Generating audio…");
+    try {
+      const result = await platform.ttsGenerate(req);
+      if (id !== requestId) return;
+      load(result, true);
+    } catch (e) {
+      if (id === requestId) setStatus(String(e), "error");
+    } finally {
+      if (id === requestId) {
+        busy = false;
+        bar.classList.remove("busy");
+      }
+    }
+  }
+
+  function reset() {
+    requestId++;
+    busy = false;
+    bar.classList.remove("busy");
+    audio.pause();
+    audio.removeAttribute("src");
+    audio.load();
+    loadedHash = null;
+    setPlaying(false);
+    $("#tts-seek").value = 0;
+    $("#tts-time").textContent = "0:00";
+    $("#tts-dur").textContent = "0:00";
+  }
+
+  function show() {
+    if (!doc.path) return toast("Open a file to read it aloud");
+    open = true;
+    document.body.classList.add("tts-open");
+    if (!loadedHash) prepare(true);
+    else audio.play();
+  }
+
+  function hide() {
+    open = false;
+    document.body.classList.remove("tts-open");
+    reset();
+    setStatus("");
+  }
+
+  $("#tts-play").addEventListener("click", () => {
+    if (busy) return;
+    if (!loadedHash) return prepare(true);
+    audio.paused ? audio.play() : audio.pause();
+  });
+  $("#tts-close").addEventListener("click", hide);
+  $("#tts-rate").addEventListener("change", (e) => {
+    audio.playbackRate = Number(e.target.value);
+    setPref("ttsRate", Number(e.target.value));
+  });
+  $("#tts-seek").addEventListener("input", (e) => {
+    if (audio.duration) audio.currentTime = (e.target.value / 1000) * audio.duration;
+  });
+  audio.addEventListener("play", () => setPlaying(true));
+  audio.addEventListener("pause", () => setPlaying(false));
+  audio.addEventListener("ended", () => setPlaying(false));
+  audio.addEventListener("loadedmetadata", () => ($("#tts-dur").textContent = fmtTime(audio.duration)));
+  audio.addEventListener("timeupdate", () => {
+    $("#tts-time").textContent = fmtTime(audio.currentTime);
+    if (audio.duration) $("#tts-seek").value = Math.round((audio.currentTime / audio.duration) * 1000);
+  });
+  audio.addEventListener("error", () => {
+    if (audio.getAttribute("src")) setStatus("Couldn't play this audio file", "error");
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (!open || e.key !== " " || e.target.closest("input, select, textarea, button")) return;
+    e.preventDefault();
+    $("#tts-play").click();
+  });
+
+  async function refreshCacheInfo() {
+    try {
+      const info = await platform.ttsCacheInfo();
+      $("#tts-cache-out").textContent = info.files ? `${info.files} file${info.files === 1 ? "" : "s"} · ${fmtBytes(info.bytes)}` : "empty";
+      $("#tts-cache-out").title = info.dir;
+    } catch {
+      $("#tts-cache-out").textContent = "";
+    }
+  }
+
+  async function loadVoices() {
+    const sel = $("#tts-voice");
+    try {
+      const voices = await platform.ttsVoices();
+      for (const v of voices) {
+        const o = document.createElement("option");
+        o.value = v.id;
+        o.textContent = `${v.name} (${v.language})`;
+        sel.appendChild(o);
+      }
+    } catch {}
+    sel.value = settings.ttsVoice;
+    $("#tts-rate").value = String(settings.ttsRate);
+  }
+
+  return {
+    toggle: () => (open ? hide() : show()),
+    stop: reset,
+    refreshCacheInfo,
+    loadVoices,
+    // New document or edited file: drop old audio, look for a cached match.
+    documentChanged() {
+      if (!open) {
+        loadedHash = null;
+        return;
+      }
+      const wasPlaying = !audio.paused;
+      reset();
+      prepare(false).then(() => wasPlaying && loadedHash && audio.play());
+    },
+    settingsChanged() {
+      if (open) {
+        reset();
+        prepare(false);
+      } else loadedHash = null;
+    },
+  };
+})();
+
+if (import.meta.env.DEV) window.__filesmd = { speechText };
+
 // Label editors that aren't installed so the choice is obvious.
 async function markInstalledEditors() {
   const found = new Set(await platform.detectEditors().catch(() => []));
@@ -561,6 +902,8 @@ async function start() {
   applySettings();
   renderRecent();
   markInstalledEditors();
+  tts.loadVoices();
+  tts.refreshCacheInfo();
 
   await platform.onDragDrop({
     enter: () => document.body.classList.add("dragging"),

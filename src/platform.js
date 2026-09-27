@@ -119,6 +119,39 @@ export const platform = {
     return opener.openUrl(url);
   },
 
+  async print() {
+    if (!isTauri) return window.print();
+    const { core } = await loadTauri();
+    return core.invoke("print_page");
+  },
+
+  // ---- read aloud
+  async ttsVoices() {
+    if (!isTauri) return [];
+    const { core } = await loadTauri();
+    return core.invoke("tts_voices");
+  },
+  async ttsLookup(req) {
+    if (!isTauri) return null;
+    const { core } = await loadTauri();
+    return core.invoke("tts_lookup", { req });
+  },
+  async ttsGenerate(req) {
+    if (!isTauri) throw new Error("Read aloud only works in the desktop app");
+    const { core } = await loadTauri();
+    return core.invoke("tts_generate", { req });
+  },
+  async ttsCacheInfo() {
+    if (!isTauri) return { dir: "", files: 0, bytes: 0 };
+    const { core } = await loadTauri();
+    return core.invoke("tts_cache_info");
+  },
+  async ttsCacheClear() {
+    if (!isTauri) return;
+    const { core } = await loadTauri();
+    return core.invoke("tts_cache_clear");
+  },
+
   async setTitle(title) {
     document.title = title;
     if (!isTauri) return;
