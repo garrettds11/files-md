@@ -270,12 +270,167 @@ async function renderDoc(path, { keepScroll = false, scroll = 0, heading = null 
   updateActiveHeading();
 
   tts.documentChanged();
+  find.refresh();
 
   settings.recent = [file.path, ...settings.recent.filter((p) => p !== file.path)].slice(0, 10);
   saveSettings();
   renderRecent();
   return true;
 }
+
+// ---------------------------------------------------------------- find in document
+
+/**
+ * Find bar. Matches are shown with the CSS Custom Highlight API, so the
+ * document's DOM is never modified. Matching runs over the whole text of
+ * the document, so a phrase spanning **bold** or `code` still matches.
+ */
+const find = (() => {
+  const bar = $("#find-bar");
+  const input = $("#find-input");
+  const count = $("#find-count");
+  const supported = typeof Highlight !== "undefined" && CSS.highlights;
+  let ranges = [];
+  let current = -1;
+
+  function textIndex() {
+    const nodes = [];
+    let text = "";
+    const walker = document.createTreeWalker($("#doc"), NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => (n.parentElement.closest(".code-bar") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+    });
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      nodes.push({ node: n, start: text.length });
+      text += n.data;
+    }
+    return { nodes, text };
+  }
+
+  function locate(nodes, offset) {
+    let lo = 0, hi = nodes.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (nodes[mid].start <= offset) lo = mid;
+      else hi = mid - 1;
+    }
+    return { node: nodes[lo].node, offset: offset - nodes[lo].start };
+  }
+
+  function paint() {
+    if (!supported) return;
+    CSS.highlights.delete("find");
+    CSS.highlights.delete("find-current");
+    if (ranges.length) CSS.highlights.set("find", new Highlight(...ranges));
+    if (ranges[current]) CSS.highlights.set("find-current", new Highlight(ranges[current]));
+  }
+
+  function showCount() {
+    const q = input.value;
+    count.textContent = !q ? "" : ranges.length ? `${current + 1} of ${ranges.length}` : "No matches";
+    bar.classList.toggle("no-match", !!q && !ranges.length);
+  }
+
+  function reveal() {
+    const r = ranges[current];
+    if (!r) return;
+    const content = $("#content");
+    const box = r.getBoundingClientRect();
+    const view = content.getBoundingClientRect();
+    if (box.top < view.top + 60 || box.bottom > view.bottom - 40) {
+      content.scrollTop += box.top - view.top - view.height / 3;
+    }
+  }
+
+  function search({ keepPosition = false } = {}) {
+    const q = input.value;
+    const prevStart = keepPosition && ranges[current] ? current : 0;
+    ranges = [];
+    current = -1;
+    if (q && doc.path) {
+      const { nodes, text } = textIndex();
+      const hay = $("#find-case").checked ? text : text.toLowerCase();
+      const needle = $("#find-case").checked ? q : q.toLowerCase();
+      for (let i = hay.indexOf(needle); i !== -1 && ranges.length < 5000; i = hay.indexOf(needle, i + needle.length)) {
+        const a = locate(nodes, i);
+        const b = locate(nodes, i + needle.length - 1);
+        const range = document.createRange();
+        range.setStart(a.node, a.offset);
+        range.setEnd(b.node, b.offset + 1);
+        ranges.push(range);
+      }
+      if (ranges.length) {
+        current = Math.min(prevStart, ranges.length - 1);
+        if (!keepPosition) {
+          // Start at the first match below the top of the visible area.
+          const top = $("#content").getBoundingClientRect().top;
+          const idx = ranges.findIndex((r) => r.getBoundingClientRect().top >= top);
+          current = idx === -1 ? 0 : idx;
+        }
+      }
+    }
+    paint();
+    showCount();
+    if (!keepPosition) reveal();
+  }
+
+  function step(dir) {
+    if (!ranges.length) return search();
+    current = (current + dir + ranges.length) % ranges.length;
+    paint();
+    showCount();
+    reveal();
+  }
+
+  function open() {
+    if (!doc.path) return toast("Open a file to search it");
+    bar.hidden = false;
+    const sel = window.getSelection().toString().trim();
+    if (sel && !sel.includes("\n") && sel.length < 100) input.value = sel;
+    input.focus();
+    input.select();
+    search();
+  }
+
+  function close() {
+    bar.hidden = true;
+    ranges = [];
+    current = -1;
+    paint();
+    $("#content").focus({ preventScroll: true });
+  }
+
+  let debounce = 0;
+  input.addEventListener("input", () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(search, 120);
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      step(e.shiftKey ? -1 : 1);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      close();
+    }
+  });
+  $("#find-next").addEventListener("click", () => step(1));
+  $("#find-prev").addEventListener("click", () => step(-1));
+  $("#find-close").addEventListener("click", close);
+  $("#find-case").addEventListener("change", () => search());
+
+  return {
+    open,
+    close,
+    isOpen: () => !bar.hidden,
+    // Document re-rendered (tab switch, reload, edit on disk): search again.
+    refresh() {
+      if (bar.hidden) return;
+      if (!doc.path) return close();
+      search({ keepPosition: true });
+    },
+  };
+})();
 
 // ---------------------------------------------------------------- tabs
 
@@ -582,17 +737,7 @@ function buildToc() {
     list.appendChild(li);
   }
   $("#toc-empty").hidden = doc.headings.length > 0;
-  filterToc();
 }
-
-function filterToc() {
-  const q = $("#toc-filter").value.trim().toLowerCase();
-  for (const li of $("#toc-list").children) {
-    li.hidden = q && !li.textContent.toLowerCase().includes(q);
-  }
-}
-
-$("#toc-filter").addEventListener("input", filterToc);
 
 $("#toc-list").addEventListener("click", (e) => {
   const a = e.target.closest("a");
@@ -724,6 +869,7 @@ const actions = {
     const paths = await platform.pickFile();
     if (paths?.length) openPaths(paths);
   },
+  find() { find.open(); },
   "close-tab"() { activeTab ? closeTab() : null; },
   "next-tab"() { cycleTab(1); },
   "prev-tab"() { cycleTab(-1); },
@@ -805,7 +951,8 @@ const actions = {
         <tr><td><kbd>F5</kbd></td><td>Reload</td></tr>
         <tr><td><kbd>Ctrl+B</kbd></td><td>Show / hide headings pane</td></tr>
         <tr><td><kbd>Ctrl+,</kbd></td><td>Preferences</td></tr>
-        <tr><td><kbd>Ctrl+F</kbd></td><td>Filter headings</td></tr>
+        <tr><td><kbd>Ctrl+F</kbd></td><td>Find in document</td></tr>
+        <tr><td><kbd>Enter</kbd> / <kbd>Shift+Enter</kbd></td><td>Next / previous match</td></tr>
         <tr><td><kbd>Ctrl+=</kbd> / <kbd>Ctrl+-</kbd></td><td>Text size</td></tr>
         <tr><td><kbd>Ctrl+0</kbd></td><td>Reset text size</td></tr>
         <tr><td><kbd>Home</kbd> / <kbd>End</kbd></td><td>Top / bottom of document</td></tr>
@@ -846,11 +993,18 @@ document.addEventListener("keydown", (e) => {
   const ctrl = e.ctrlKey || e.metaKey;
   const key = e.key.toLowerCase();
   if (key === "escape") {
+    if (find.isOpen()) find.close();
     closeMenus();
     document.body.classList.remove("prefs-open");
     return;
   }
   if (e.key === "F5") { e.preventDefault(); actions.reload(); return; }
+  if (e.key === "F3") {
+    e.preventDefault();
+    if (!find.isOpen()) find.open();
+    else $(e.shiftKey ? "#find-prev" : "#find-next").click();
+    return;
+  }
   if (ctrl && (e.key === "Tab" || e.key === "PageDown" || e.key === "PageUp")) {
     e.preventDefault();
     cycleTab(e.key === "PageUp" || (e.key === "Tab" && e.shiftKey) ? -1 : 1);
@@ -867,9 +1021,9 @@ document.addEventListener("keydown", (e) => {
     o: "open", e: "edit", p: "print", w: "close-tab", n: "new-window", b: "toggle-toc", ",": "toggle-prefs", q: "quit", r: "reload",
     "=": "zoom-in", "+": "zoom-in", "-": "zoom-out", "0": "zoom-reset",
   };
-  if (key === "f" && settings.showToc && doc.path) {
+  if (key === "f") {
     e.preventDefault();
-    $("#toc-filter").focus();
+    actions.find();
     return;
   }
   if (map[key]) { e.preventDefault(); actions[map[key]](); }

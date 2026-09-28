@@ -198,6 +198,55 @@ button, input, select { font: inherit; color: inherit; }
   height: calc(100% - var(--menubar-h) - var(--tabbar-h, 0px));
 }
 
+/* ---------------------------------------------------------------- find */
+
+.main-col { position: relative; }
+.find-bar {
+  position: absolute;
+  top: 10px;
+  right: 22px;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 6px 5px 8px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+.find-bar[hidden] { display: none; }
+.find-bar input[type="search"] {
+  width: 220px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+}
+.find-bar input[type="search"]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.find-bar.no-match input[type="search"] { outline-color: #d1242f; background: color-mix(in srgb, #d1242f 8%, var(--bg)); }
+.find-count { min-width: 70px; text-align: center; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.find-bar .icon-btn { width: 26px; height: 26px; }
+.find-case {
+  display: grid;
+  place-items: center;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.find-case input { position: absolute; opacity: 0; pointer-events: none; }
+.find-case:hover { background: var(--bg-hover); }
+.find-case:has(input:checked) { background: var(--bg-active); color: var(--accent); }
+
+::highlight(find) { background-color: #fde68a; color: #1f2328; }
+::highlight(find-current) { background-color: #f59e0b; color: #111; }
+:root[data-theme="dark"] ::highlight(find) { background-color: #7a5b0c; color: #fff; }
+:root[data-theme="dark"] ::highlight(find-current) { background-color: #e3a008; color: #111; }
+
 /* ---------------------------------------------------------------- tabs */
 
 body.has-tabs { --tabbar-h: 34px; }
@@ -304,27 +353,13 @@ body:not(.has-doc) .toc, body:not(.has-doc) .toc-resizer { display: none; }
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 10px 8px 14px;
+  padding: 12px 10px 8px 14px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
-.toc-header input::placeholder { color: var(--text-faint); opacity: 1; }
-.toc-header input {
-  flex: 1;
-  min-width: 0;
-  padding: 3px 8px;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  background: var(--bg);
-  text-transform: none;
-  letter-spacing: normal;
-  font-weight: normal;
-  font-size: 12px;
-}
-.toc-header input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 
 #toc-list {
   list-style: none;
@@ -781,7 +816,7 @@ body.tts-remote-on .tts-local { display: none; }
     --hl-meta: #1f6feb; --hl-tag: #116329; --hl-add-bg: #dafbe1; --hl-del-bg: #ffebe9;
   }
   html, body { height: auto; overflow: visible; background: #fff; }
-  .menubar, .tabbar, .ctx-menu, .toc, .toc-resizer, .prefs, .welcome, .drop-overlay, .toast,
+  .menubar, .tabbar, .ctx-menu, .find-bar, .toc, .toc-resizer, .prefs, .welcome, .drop-overlay, .toast,
   .tts-bar, .code-bar, dialog { display: none !important; }
   .layout, .main-col, .content { display: block; height: auto; overflow: visible; }
   .markdown-body { max-width: none; padding: 0; font-size: 11pt; }

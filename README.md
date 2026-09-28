@@ -9,7 +9,8 @@ A clean, portable Markdown reader for Windows. One `.exe`, no installer.
 </picture>
 
 - **Readable by default:** light, dark, or match Windows; adjustable font, text size, line spacing, and page width
-- **Headings pane:** jump to any heading, filter headings, current section highlighted as you scroll
+- **Headings pane:** jump to any heading, current section highlighted as you scroll
+- **Find in document:** Ctrl+F searches the whole text, with every match highlighted
 - **Opens how you'd expect:** double-click a `.md` file, drag files onto the window, or File → Open
 - **Tabs and windows:** files open as tabs in the running app instead of new copies. Right-click a tab and choose **Move to new window** to give it its own window; settings stay in sync across windows
 - **Code that's easy to read:** syntax colors for 40+ languages, with a one-click Copy button
@@ -44,7 +45,7 @@ Grab `files-md.exe` from [Releases](https://github.com/garrettds11/files-md/rele
 | `Ctrl+Shift+U` | Read aloud |
 | `Ctrl+B` | Toggle headings pane |
 | `Ctrl+,` | Preferences |
-| `Ctrl+F` | Filter headings |
+| `Ctrl+F` | Find in document (`Enter` / `Shift+Enter` for next / previous) |
 | `Ctrl+=` / `Ctrl+-` / `Ctrl+0` | Text size |
 
 ## Building

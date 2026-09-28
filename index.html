@@ -32,6 +32,8 @@
       <div class="menu" data-menu="view">
         <button class="menu-button" aria-haspopup="true">View</button>
         <div class="menu-list" role="menu">
+          <button data-action="find">Find in document<kbd>Ctrl+F</kbd></button>
+          <hr />
           <button data-action="toggle-toc">Headings pane<kbd>Ctrl+B</kbd></button>
           <button data-action="toggle-prefs">Preferences<kbd>Ctrl+,</kbd></button>
           <button data-action="read-aloud">Read aloud<kbd>Ctrl+Shift+U</kbd></button>
@@ -82,7 +84,6 @@
       <nav class="toc" id="toc" aria-label="Headings">
         <div class="toc-header">
           <span>Headings</span>
-          <input type="search" id="toc-filter" placeholder="Filter" aria-label="Filter headings" />
         </div>
         <ol id="toc-list"></ol>
         <p class="toc-empty" id="toc-empty">No headings</p>
@@ -90,6 +91,18 @@
       <div class="toc-resizer" id="toc-resizer" aria-hidden="true"></div>
 
       <div class="main-col">
+      <div class="find-bar" id="find-bar" role="search" hidden>
+        <input type="search" id="find-input" placeholder="Find in document" aria-label="Find in document" spellcheck="false" />
+        <span class="find-count" id="find-count" aria-live="polite"></span>
+        <button class="icon-btn" id="find-prev" title="Previous (Shift+Enter)" aria-label="Previous match">
+          <svg viewBox="0 0 20 20" width="16" height="16"><path d="M5 12l5-5 5 5" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="icon-btn" id="find-next" title="Next (Enter)" aria-label="Next match">
+          <svg viewBox="0 0 20 20" width="16" height="16"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <label class="find-case" title="Match case"><input type="checkbox" id="find-case" />Aa</label>
+        <button class="icon-btn" id="find-close" title="Close (Esc)" aria-label="Close find">✕</button>
+      </div>
       <main class="content" id="content" tabindex="-1">
         <article class="markdown-body" id="doc"></article>
         <section class="welcome" id="welcome">
