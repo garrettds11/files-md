@@ -7,14 +7,16 @@ let api = null;
 
 async function loadTauri() {
   if (api) return api;
-  const [core, dialog, opener, webview, win] = await Promise.all([
+  const [core, dialog, opener, webview, win, event, webviewWindow] = await Promise.all([
     import("@tauri-apps/api/core"),
     import("@tauri-apps/plugin-dialog"),
     import("@tauri-apps/plugin-opener"),
     import("@tauri-apps/api/webview"),
     import("@tauri-apps/api/window"),
+    import("@tauri-apps/api/event"),
+    import("@tauri-apps/api/webviewWindow"),
   ]);
-  api = { core, dialog, opener, webview, win };
+  api = { core, dialog, opener, webview, win, event, webviewWindow };
   return api;
 }
 
@@ -23,10 +25,32 @@ const browserFiles = new Map(); // path -> content (dev mode only)
 export const platform = {
   isTauri,
 
-  async initialFile() {
+  /** { paths, scroll, heading } this window should open at startup, or null. */
+  async initialOpen() {
     if (!isTauri) return null;
     const { core } = await loadTauri();
-    return core.invoke("initial_file");
+    return core.invoke("initial_open");
+  },
+
+  /** Files opened from Windows while the app is already running. */
+  async onOpenFiles(cb) {
+    if (!isTauri) return;
+    const { webviewWindow } = await loadTauri();
+    await webviewWindow.getCurrentWebviewWindow().listen("open-files", (e) => cb(e.payload));
+  },
+
+  /** Open a new app window, optionally with { paths, scroll, heading }. */
+  async openWindow(request = null) {
+    if (!isTauri) {
+      window.open(location.href, "_blank");
+      return null;
+    }
+    const { core } = await loadTauri();
+    return core.invoke("open_window", { request });
+  },
+
+  windowLabel() {
+    return isTauri && api ? api.win.getCurrentWindow().label : "main";
   },
 
   async readMarkdown(path) {
@@ -53,13 +77,24 @@ export const platform = {
     return core.invoke("load_settings");
   },
 
-  async saveSettings(settings) {
+  /** Send only the changed keys; the app merges them and saves once. */
+  async updateSettings(changes) {
     if (!isTauri) {
-      try { localStorage.setItem("files-md.settings", JSON.stringify(settings)); } catch {}
+      try {
+        const cur = JSON.parse(localStorage.getItem("files-md.settings") || "{}");
+        localStorage.setItem("files-md.settings", JSON.stringify({ ...cur, ...changes }));
+      } catch {}
       return "browser storage";
     }
     const { core } = await loadTauri();
-    return core.invoke("save_settings", { settings });
+    return core.invoke("update_settings", { changes });
+  },
+
+  /** Called with (settings, sourceWindowLabel) whenever any window changes settings. */
+  async onSettingsChanged(cb) {
+    if (!isTauri) return;
+    const { event } = await loadTauri();
+    await event.listen("settings-changed", (e) => cb(e.payload.settings, e.payload.source));
   },
 
   async pickFile() {
@@ -68,25 +103,26 @@ export const platform = {
         const input = document.createElement("input");
         input.type = "file";
         input.accept = ".md,.markdown,.mdown,.mkd,.txt";
+        input.multiple = true;
         input.onchange = async () => {
-          const f = input.files?.[0];
-          if (!f) return resolve(null);
-          browserFiles.set(f.name, await f.text());
-          resolve(f.name);
+          const files = [...(input.files || [])];
+          for (const f of files) browserFiles.set(f.name, await f.text());
+          resolve(files.map((f) => f.name));
         };
         input.click();
       });
     }
     const { dialog } = await loadTauri();
     const picked = await dialog.open({
-      multiple: false,
+      multiple: true,
       directory: false,
       filters: [
         { name: "Markdown", extensions: ["md", "markdown", "mdown", "mkd", "mkdn", "mdx", "txt"] },
         { name: "All files", extensions: ["*"] },
       ],
     });
-    return typeof picked === "string" ? picked : picked?.path ?? null;
+    if (!picked) return [];
+    return (Array.isArray(picked) ? picked : [picked]).map((p) => (typeof p === "string" ? p : p.path));
   },
 
   async detectEditors() {
@@ -179,10 +215,9 @@ export const platform = {
       window.addEventListener("drop", async (e) => {
         e.preventDefault();
         leave();
-        const f = e.dataTransfer?.files?.[0];
-        if (!f) return;
-        browserFiles.set(f.name, await f.text());
-        drop(f.name);
+        const files = [...(e.dataTransfer?.files || [])];
+        for (const f of files) browserFiles.set(f.name, await f.text());
+        if (files.length) drop(files.map((f) => f.name));
       });
       return;
     }
@@ -193,7 +228,7 @@ export const platform = {
       else if (p.type === "leave") leave();
       else if (p.type === "drop") {
         leave();
-        if (p.paths?.length) drop(p.paths[0]);
+        if (p.paths?.length) drop(p.paths);
       }
     });
   },

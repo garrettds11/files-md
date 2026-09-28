@@ -38,13 +38,27 @@ const DEFAULTS = {
 };
 
 let settings = { ...DEFAULTS };
+// Last settings known to be saved by the app. Only keys that differ from
+// this are sent, so two windows changing different settings never clobber
+// each other.
+let synced = {};
 let saveTimer = null;
+
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+function unsavedChanges() {
+  const changes = {};
+  for (const k of Object.keys(settings)) if (!same(settings[k], synced[k])) changes[k] = settings[k];
+  return changes;
+}
 
 function saveSettings() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
+    const changes = unsavedChanges();
+    if (!Object.keys(changes).length) return;
+    synced = { ...synced, ...changes };
     try {
-      const where = await platform.saveSettings(settings);
+      const where = await platform.updateSettings(changes);
       $("#prefs-note").textContent = `Saved to ${where}`;
     } catch (e) {
       $("#prefs-note").textContent = `Couldn't save settings: ${e}`;
@@ -52,11 +66,25 @@ function saveSettings() {
   }, 250);
 }
 
+/** Another window changed settings: adopt them, keeping our own unsaved edits. */
+function applyRemoteSettings(remote) {
+  const pending = unsavedChanges();
+  const before = settings;
+  synced = { ...DEFAULTS, ...remote };
+  settings = { ...synced, ...pending };
+  applySettings();
+  renderRecent();
+  $("#tts-rate").value = String(settings.ttsRate);
+  if (before.syntax !== settings.syntax && doc.path) renderDoc(doc.path, { keepScroll: true });
+  const ttsKeys = Object.keys(settings).filter((k) => k.startsWith("tts") && k !== "ttsRate");
+  if (ttsKeys.some((k) => !same(before[k], settings[k]))) tts.settingsChanged();
+}
+
 function setPref(key, value) {
   settings[key] = value;
   applySettings();
   saveSettings();
-  if (key === "syntax" && doc.path) openFile(doc.path, { keepScroll: true });
+  if (key === "syntax" && doc.path) renderDoc(doc.path, { keepScroll: true });
   if (key.startsWith("tts") && key !== "ttsRate") tts.settingsChanged();
 }
 
@@ -208,7 +236,8 @@ function joinPath(dir, rel) {
 
 const isExternal = (href) => /^[a-z][a-z0-9+.-]*:/i.test(href) && !/^[a-zA-Z]:[\\/]/.test(href);
 
-async function openFile(path, { keepScroll = false } = {}) {
+/** Read a file and show it in the document view. Returns false if it couldn't be read. */
+async function renderDoc(path, { keepScroll = false, scroll = 0, heading = null } = {}) {
   let file;
   try {
     file = await platform.readMarkdown(path);
@@ -217,10 +246,10 @@ async function openFile(path, { keepScroll = false } = {}) {
     settings.recent = settings.recent.filter((p) => p !== path);
     saveSettings();
     renderRecent();
-    return;
+    return false;
   }
   const content = $("#content");
-  const scroll = keepScroll ? content.scrollTop : 0;
+  if (keepScroll) scroll = content.scrollTop;
 
   const env = {};
   const html = md.render(file.content, env);
@@ -237,6 +266,7 @@ async function openFile(path, { keepScroll = false } = {}) {
   platform.setTitle(`${file.name} — Files.md`);
   buildToc();
   content.scrollTop = scroll;
+  if (heading) document.getElementById(heading)?.scrollIntoView({ block: "start" });
   updateActiveHeading();
 
   tts.documentChanged();
@@ -244,6 +274,196 @@ async function openFile(path, { keepScroll = false } = {}) {
   settings.recent = [file.path, ...settings.recent.filter((p) => p !== file.path)].slice(0, 10);
   saveSettings();
   renderRecent();
+  return true;
+}
+
+// ---------------------------------------------------------------- tabs
+
+const tabs = []; // { id, path, name, scroll, heading }
+let activeTab = null;
+let tabSeq = 0;
+
+const baseName = (p) => p.split(/[\\/]/).pop();
+const samePath = (a, b) => a.toLowerCase() === b.toLowerCase();
+
+function rememberPosition() {
+  if (!activeTab) return;
+  activeTab.scroll = $("#content").scrollTop;
+  activeTab.heading = activeId;
+}
+
+/**
+ * Open a file. By default it goes in a new tab (or focuses its existing tab);
+ * with { replace: true } it replaces the current tab (following a link).
+ */
+async function openFile(path, { replace = false, scroll = 0, heading = null, background = false } = {}) {
+  const existing = tabs.find((t) => samePath(t.path, path));
+  if (existing) {
+    // Already open: switch to it (never open the same file twice in one window).
+    if (!background && existing !== activeTab) await activateTab(existing);
+    if (heading && existing === activeTab) scrollToHeading(heading);
+    return existing;
+  }
+  if (replace && activeTab) {
+    const tab = activeTab;
+    if (await renderDoc(path, { scroll, heading })) {
+      tab.path = doc.path;
+      tab.name = baseName(doc.path);
+      tab.scroll = 0;
+    }
+    renderTabs();
+    return tab;
+  }
+  const tab = { id: ++tabSeq, path, name: baseName(path), scroll, heading };
+  const at = activeTab ? tabs.indexOf(activeTab) + 1 : tabs.length;
+  tabs.splice(at, 0, tab);
+  if (background) {
+    renderTabs();
+    return tab;
+  }
+  if (!(await activateTab(tab))) {
+    tabs.splice(tabs.indexOf(tab), 1);
+    activeTab = null;
+    const fallback = tabs[at - 1] || tabs[0];
+    if (fallback) await activateTab(fallback);
+    else showWelcome();
+    return null;
+  }
+  return tab;
+}
+
+async function activateTab(tab) {
+  if (tab !== activeTab) rememberPosition();
+  activeTab = tab;
+  renderTabs();
+  const ok = await renderDoc(tab.path, { scroll: tab.scroll, heading: tab.scroll ? null : tab.heading });
+  if (ok) {
+    tab.path = doc.path;
+    tab.name = baseName(doc.path);
+    renderTabs();
+  }
+  return ok;
+}
+
+async function closeTab(tab = activeTab) {
+  if (!tab) return;
+  const i = tabs.indexOf(tab);
+  tabs.splice(i, 1);
+  if (tab !== activeTab) return renderTabs();
+  activeTab = null;
+  const next = tabs[i] || tabs[i - 1];
+  if (next) return activateTab(next);
+  showWelcome();
+}
+
+function showWelcome() {
+  renderTabs();
+  tts.close();
+  doc.path = null;
+  doc.headings = [];
+  $("#doc").innerHTML = "";
+  document.body.classList.remove("has-doc");
+  $("#doc-title").textContent = "Files.md";
+  platform.setTitle("Files.md");
+}
+
+function cycleTab(step) {
+  if (tabs.length < 2 || !activeTab) return;
+  const i = (tabs.indexOf(activeTab) + step + tabs.length) % tabs.length;
+  activateTab(tabs[i]);
+}
+
+/** Move a tab into its own window, keeping its place in the document. */
+async function popOutTab(tab = activeTab) {
+  if (!tab) return;
+  if (tab === activeTab) rememberPosition();
+  try {
+    await platform.openWindow({ paths: [tab.path], scroll: tab.scroll || 0, heading: tab.heading || null });
+    closeTab(tab);
+  } catch (e) {
+    toast(`Couldn't open a new window: ${e}`);
+  }
+}
+
+function renderTabs() {
+  const bar = $("#tab-list");
+  bar.innerHTML = "";
+  document.body.classList.toggle("has-tabs", tabs.length > 0);
+  for (const tab of tabs) {
+    const el = document.createElement("div");
+    el.className = "tab";
+    el.setAttribute("role", "tab");
+    el.setAttribute("aria-selected", tab === activeTab);
+    el.title = tab.path;
+    el.dataset.id = tab.id;
+    const name = document.createElement("span");
+    name.className = "tab-name";
+    name.textContent = tab.name;
+    const close = document.createElement("button");
+    close.className = "tab-close";
+    close.setAttribute("aria-label", `Close ${tab.name}`);
+    close.textContent = "✕";
+    close.addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeTab(tab);
+    });
+    el.append(name, close);
+    el.addEventListener("mousedown", (e) => {
+      if (e.button === 1) { e.preventDefault(); closeTab(tab); }
+    });
+    el.addEventListener("click", () => tab !== activeTab && activateTab(tab));
+    el.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      showTabMenu(tab, e.clientX, e.clientY);
+    });
+    bar.appendChild(el);
+    if (tab === activeTab) requestAnimationFrame(() => el.scrollIntoView({ block: "nearest", inline: "nearest" }));
+  }
+}
+
+function showTabMenu(tab, x, y) {
+  const menu = $("#tab-menu");
+  const items = [
+    ["Move to new window", () => popOutTab(tab)],
+    ["Copy file path", async () => { await navigator.clipboard.writeText(tab.path); toast("File path copied"); }],
+    null,
+    ["Close", () => closeTab(tab)],
+    ["Close other tabs", () => {
+      for (const t of [...tabs]) if (t !== tab) tabs.splice(tabs.indexOf(t), 1);
+      tab === activeTab ? renderTabs() : activateTab(tab);
+    }],
+  ];
+  menu.innerHTML = "";
+  for (const item of items) {
+    if (!item) { menu.appendChild(document.createElement("hr")); continue; }
+    const b = document.createElement("button");
+    b.textContent = item[0];
+    b.addEventListener("click", () => { hideTabMenu(); item[1](); });
+    menu.appendChild(b);
+  }
+  menu.hidden = false;
+  const r = menu.getBoundingClientRect();
+  menu.style.left = `${Math.min(x, innerWidth - r.width - 8)}px`;
+  menu.style.top = `${Math.min(y, innerHeight - r.height - 8)}px`;
+}
+function hideTabMenu() { $("#tab-menu").hidden = true; }
+document.addEventListener("mousedown", (e) => { if (!e.target.closest("#tab-menu")) hideTabMenu(); });
+window.addEventListener("blur", hideTabMenu);
+
+// Mouse wheel scrolls the tab strip sideways.
+$("#tab-list").addEventListener("wheel", (e) => {
+  if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+    e.currentTarget.scrollLeft += e.deltaY;
+    e.preventDefault();
+  }
+}, { passive: false });
+
+async function openPaths(paths, opts = {}) {
+  let first = true;
+  for (const p of paths) {
+    await openFile(p, first ? opts : {});
+    first = false;
+  }
 }
 
 function fixupContent(article) {
@@ -323,7 +543,8 @@ $("#doc").addEventListener("click", (e) => {
     const [file, hash] = href.split("#");
     const target = joinPath(doc.dir, decodeURI(file));
     if (/\.(md|markdown|mdown|mkd|mkdn|mdx|txt)$/i.test(file)) {
-      openFile(target).then(() => hash && scrollToHeading(hash));
+      const newTab = e.ctrlKey || e.metaKey || e.button === 1;
+      openFile(target, { replace: !newTab, heading: hash ? decodeURIComponent(hash) : null });
     } else {
       platform.openExternal(target);
     }
@@ -444,7 +665,7 @@ function setupAutoReload() {
   reloadTimer = setInterval(async () => {
     if (!doc.path) return;
     const m = await platform.fileModified(doc.path).catch(() => 0);
-    if (m && m !== doc.modified) openFile(doc.path, { keepScroll: true });
+    if (m && m !== doc.modified) renderDoc(doc.path, { keepScroll: true });
   }, 1000);
 }
 
@@ -488,6 +709,7 @@ function renderRecent() {
     b.textContent = p.split(/[\\/]/).pop();
     b.title = p;
     b.addEventListener("click", () => openFile(p));
+    if (tabs.some((t) => samePath(t.path, p))) b.classList.add("is-open");
     list.appendChild(b);
   }
   list.appendChild(document.createElement("hr"));
@@ -499,8 +721,19 @@ function renderRecent() {
 
 const actions = {
   async open() {
-    const p = await platform.pickFile();
-    if (p) openFile(p);
+    const paths = await platform.pickFile();
+    if (paths?.length) openPaths(paths);
+  },
+  "close-tab"() { activeTab ? closeTab() : null; },
+  "next-tab"() { cycleTab(1); },
+  "prev-tab"() { cycleTab(-1); },
+  "pop-out"() { activeTab ? popOutTab() : toast("Open a file first"); },
+  async "new-window"() {
+    try {
+      await platform.openWindow(null);
+    } catch (e) {
+      toast(`Couldn't open a new window: ${e}`);
+    }
   },
   async edit() {
     if (!doc.path) return;
@@ -514,7 +747,7 @@ const actions = {
     const exe = await platform.pickExecutable();
     if (exe) setPref("editorPath", exe);
   },
-  reload() { if (doc.path) openFile(doc.path, { keepScroll: true }); },
+  reload() { if (doc.path) renderDoc(doc.path, { keepScroll: true }); },
   async "copy-path"() {
     if (!doc.path) return;
     await navigator.clipboard.writeText(doc.path);
@@ -564,6 +797,11 @@ const actions = {
         <tr><td><kbd>Ctrl+P</kbd></td><td>Print / Save as PDF</td></tr>
         <tr><td><kbd>Ctrl+Shift+U</kbd></td><td>Read aloud</td></tr>
         <tr><td><kbd>Space</kbd></td><td>Play / pause (while reading aloud)</td></tr>
+        <tr><td><kbd>Ctrl+W</kbd></td><td>Close tab</td></tr>
+        <tr><td><kbd>Ctrl+Tab</kbd> / <kbd>Ctrl+Shift+Tab</kbd></td><td>Next / previous tab</td></tr>
+        <tr><td><kbd>Ctrl+1</kbd>…<kbd>Ctrl+9</kbd></td><td>Go to tab (9 = last)</td></tr>
+        <tr><td><kbd>Ctrl+N</kbd></td><td>New window</td></tr>
+        <tr><td>Ctrl+click a link</td><td>Open linked file in a new tab</td></tr>
         <tr><td><kbd>F5</kbd></td><td>Reload</td></tr>
         <tr><td><kbd>Ctrl+B</kbd></td><td>Show / hide headings pane</td></tr>
         <tr><td><kbd>Ctrl+,</kbd></td><td>Preferences</td></tr>
@@ -613,10 +851,20 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (e.key === "F5") { e.preventDefault(); actions.reload(); return; }
+  if (ctrl && (e.key === "Tab" || e.key === "PageDown" || e.key === "PageUp")) {
+    e.preventDefault();
+    cycleTab(e.key === "PageUp" || (e.key === "Tab" && e.shiftKey) ? -1 : 1);
+    return;
+  }
+  if (ctrl && !e.shiftKey && /^[1-9]$/.test(e.key) && tabs.length) {
+    e.preventDefault();
+    activateTab(e.key === "9" ? tabs[tabs.length - 1] : tabs[Math.min(Number(e.key), tabs.length) - 1]);
+    return;
+  }
   if (ctrl && e.shiftKey && key === "u") { e.preventDefault(); actions["read-aloud"](); return; }
   if (!ctrl) return;
   const map = {
-    o: "open", e: "edit", p: "print", b: "toggle-toc", ",": "toggle-prefs", q: "quit", r: "reload",
+    o: "open", e: "edit", p: "print", w: "close-tab", n: "new-window", b: "toggle-toc", ",": "toggle-prefs", q: "quit", r: "reload",
     "=": "zoom-in", "+": "zoom-in", "-": "zoom-out", "0": "zoom-reset",
   };
   if (key === "f" && settings.showToc && doc.path) {
@@ -860,6 +1108,7 @@ const tts = (() => {
 
   return {
     toggle: () => (open ? hide() : show()),
+    close: () => open && hide(),
     stop: reset,
     refreshCacheInfo,
     loadVoices,
@@ -882,7 +1131,7 @@ const tts = (() => {
   };
 })();
 
-if (import.meta.env.DEV) window.__filesmd = { speechText };
+if (import.meta.env.DEV) window.__filesmd = { speechText, applyRemoteSettings, get settings() { return settings; }, get synced() { return synced; }, setPref };
 
 // Label editors that aren't installed so the choice is obvious.
 async function markInstalledEditors() {
@@ -897,7 +1146,10 @@ async function markInstalledEditors() {
 
 async function start() {
   await platform.ready();
-  settings = { ...DEFAULTS, ...(await platform.loadSettings().catch(() => ({}))) };
+  const saved = await platform.loadSettings().catch(() => ({}));
+  // Defaults count as saved, so only real changes are ever sent.
+  synced = { ...DEFAULTS, ...saved };
+  settings = { ...synced };
   bindPrefControls();
   applySettings();
   renderRecent();
@@ -908,11 +1160,16 @@ async function start() {
   await platform.onDragDrop({
     enter: () => document.body.classList.add("dragging"),
     leave: () => document.body.classList.remove("dragging"),
-    drop: (path) => openFile(path),
+    drop: (paths) => openPaths(paths),
   });
+  await platform.onSettingsChanged((remote, source) => {
+    if (source === platform.windowLabel()) synced = { ...DEFAULTS, ...remote };
+    else applyRemoteSettings(remote);
+  });
+  await platform.onOpenFiles((req) => openPaths(req.paths));
 
-  const initial = await platform.initialFile().catch(() => null);
-  if (initial) await openFile(initial);
+  const initial = await platform.initialOpen().catch(() => null);
+  if (initial?.paths?.length) await openPaths(initial.paths, { scroll: initial.scroll, heading: initial.heading });
 }
 
 start();

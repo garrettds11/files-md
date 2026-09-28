@@ -10,7 +10,8 @@ A clean, portable Markdown reader for Windows. One `.exe`, no installer.
 
 - **Readable by default:** light, dark, or match Windows; adjustable font, text size, line spacing, and page width
 - **Headings pane:** jump to any heading, filter headings, current section highlighted as you scroll
-- **Opens how you'd expect:** double-click a `.md` file, drag a file onto the window, or File → Open
+- **Opens how you'd expect:** double-click a `.md` file, drag files onto the window, or File → Open
+- **Tabs and windows:** files open as tabs in the running app instead of new copies. Right-click a tab and choose **Move to new window** to give it its own window; settings stay in sync across windows
 - **Code that's easy to read:** syntax colors for 40+ languages, with a one-click Copy button
 - **Read aloud:** listen to any document using Windows' built-in voices (offline), or an optional remote speech service. Audio is cached, so replaying is instant
 - **Print / Save as PDF:** clean printouts in light colors, without the app's menus and panes
@@ -32,7 +33,11 @@ Grab `files-md.exe` from [Releases](https://github.com/garrettds11/files-md/rele
 
 | Keys | Action |
 |---|---|
-| `Ctrl+O` | Open file |
+| `Ctrl+O` | Open file(s) |
+| `Ctrl+W` | Close tab |
+| `Ctrl+Tab` / `Ctrl+Shift+Tab` | Next / previous tab |
+| `Ctrl+1`…`Ctrl+9` | Go to tab (9 = last) |
+| `Ctrl+N` | New window |
 | `Ctrl+E` | Edit in your editor (Notepad, VS Code, Notepad++, or any .exe — set in Preferences) |
 | `F5` | Reload |
 | `Ctrl+P` | Print / Save as PDF |
