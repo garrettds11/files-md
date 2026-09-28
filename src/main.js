@@ -824,7 +824,7 @@ const actions = {
       <p>If you move the .exe later, repeat these steps.</p>`);
   },
   about() {
-    showDialog(`<h2>Files.md</h2><p>Version 0.2.0</p>
+    showDialog(`<h2>Files.md</h2><p>Version 0.3.0</p>
       <p>A clean, portable Markdown reader for Windows.</p>
       <p><a href="https://github.com/garrettds11/files-md" data-external>github.com/garrettds11/files-md</a></p>`);
   },
