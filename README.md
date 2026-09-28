@@ -5,20 +5,20 @@ A clean, portable Markdown reader for Windows. One `.exe`, no installer.
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshot-light.png">
-  <img alt="Files.md showing a document with the headings pane and the Preferences panel" src="docs/screenshot-light.png">
+  <img alt="Files.md showing a document in a tab, with the headings pane, the Preferences panel, and the read-aloud player" src="docs/screenshot-light.png">
 </picture>
 
 - **Readable by default:** light, dark, or match Windows; adjustable font, text size, line spacing, and page width
 - **Headings pane:** jump to any heading, current section highlighted as you scroll
 - **Find in document:** Ctrl+F searches the whole text, with every match highlighted
 - **Opens how you'd expect:** double-click a `.md` file, drag files onto the window, or File → Open
-- **Tabs and windows:** files open as tabs in the running app instead of new copies. Right-click a tab and choose **Move to new window** to give it its own window; settings stay in sync across windows
+- **Tabs and windows:** open several files at once; files opened from Explorer become tabs in the running app instead of new copies. Right-click a tab and choose **Move to new window** to give it its own window; settings stay in sync across windows
 - **Code that's easy to read:** syntax colors for 40+ languages, with a one-click Copy button
 - **Read aloud:** listen to any document using Windows' built-in voices (offline), or an optional remote speech service. Audio is cached, so replaying is instant
 - **Print / Save as PDF:** clean printouts in light colors, without the app's menus and panes
 - **Edit in your editor:** Ctrl+E opens the file in Notepad, VS Code, Notepad++, or any editor you pick
 - **Auto-reload:** re-renders when the file changes on disk, so edits show up as you save
-- **Portable:** settings are saved to `files-md.settings.json` next to the exe
+- **Portable:** settings are saved to `files-md.settings.json` next to the exe (or in your AppData folder if that folder isn't writable)
 
 ## Download
 
@@ -32,6 +32,8 @@ Grab `files-md.exe` from [Releases](https://github.com/garrettds11/files-md/rele
 
 ## Keyboard shortcuts
 
+**Files, tabs, and windows**
+
 | Keys | Action |
 |---|---|
 | `Ctrl+O` | Open file(s) |
@@ -39,14 +41,27 @@ Grab `files-md.exe` from [Releases](https://github.com/garrettds11/files-md/rele
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | Next / previous tab |
 | `Ctrl+1`…`Ctrl+9` | Go to tab (9 = last) |
 | `Ctrl+N` | New window |
-| `Ctrl+E` | Edit in your editor (Notepad, VS Code, Notepad++, or any .exe — set in Preferences) |
+| `Ctrl`+click a link | Open the linked `.md` file in a new tab |
 | `F5` | Reload |
-| `Ctrl+P` | Print / Save as PDF |
-| `Ctrl+Shift+U` | Read aloud |
-| `Ctrl+B` | Toggle headings pane |
-| `Ctrl+,` | Preferences |
-| `Ctrl+F` | Find in document (`Enter` / `Shift+Enter` for next / previous) |
+
+**Reading**
+
+| Keys | Action |
+|---|---|
+| `Ctrl+F` | Find in document |
+| `Enter` / `Shift+Enter` (or `F3` / `Shift+F3`) | Next / previous match |
+| `Ctrl+B` | Show / hide headings pane |
 | `Ctrl+=` / `Ctrl+-` / `Ctrl+0` | Text size |
+| `Ctrl+Shift+U` | Read aloud (`Space` to play / pause) |
+
+**Tools**
+
+| Keys | Action |
+|---|---|
+| `Ctrl+E` | Edit in your editor (Notepad, VS Code, Notepad++, or any .exe, set in Preferences) |
+| `Ctrl+P` | Print / Save as PDF |
+| `Ctrl+,` | Preferences |
+| `Esc` | Close find, menus, or Preferences |
 
 ## Building
 
