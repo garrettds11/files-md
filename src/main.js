@@ -8,6 +8,8 @@ import protobuf from "highlight.js/lib/languages/protobuf";
 import { platform } from "./platform.js";
 import bmcLogo from "./assets/bmc-logo.png";
 import bmcQr from "./assets/bmc-qr.png";
+import markdownMark from "./assets/markdown-mark.png";
+import { GUIDE, GUIDE_SOURCE } from "./welcome-guide.js";
 
 const SUPPORT_URL = "https://buymeacoffee.com/8i0sxlpmdy";
 const REPO_URL = "https://github.com/garrettds11/files-md";
@@ -29,6 +31,7 @@ const DEFAULTS = {
   wrapCode: false,
   syntax: true,
   showSupport: true,
+  showWelcome: true,
   ttsEngine: "local", // local | remote
   ttsVoice: "",
   ttsRate: 1,
@@ -439,6 +442,113 @@ const find = (() => {
   };
 })();
 
+// ---------------------------------------------------------------- welcome tab
+
+/** Open (or switch to) the built-in Welcome tab. It is a page, not a file. */
+async function openWelcome() {
+  let tab = tabs.find((t) => t.kind === "welcome");
+  if (!tab) {
+    tab = { id: ++tabSeq, kind: "welcome", path: null, name: "Welcome", scroll: 0 };
+    tabs.splice(activeTab ? tabs.indexOf(activeTab) + 1 : tabs.length, 0, tab);
+  }
+  await activateTab(tab);
+}
+
+function showWelcomeTab(tab) {
+  tts.close();
+  if (find.isOpen()) find.close();
+  doc.path = null;
+  doc.headings = [];
+  $("#doc").innerHTML = "";
+  document.body.classList.remove("has-doc");
+  $("#doc-title").textContent = "Welcome";
+  platform.setTitle("Welcome — Files.md");
+  if (!$("#welcome-page").childElementCount) buildWelcomePage();
+  $("#welcome-show").checked = settings.showWelcome;
+  $("#content").scrollTop = tab.scroll || 0;
+}
+
+function buildWelcomePage() {
+  const page = $("#welcome-page");
+  const esc = escapeHtml;
+  const sections = GUIDE.map((section) => {
+    const rows = section.items.map((item, i) => `
+      <div class="gx-row${item.unsupported ? " gx-unsupported" : ""}" data-section="${esc(section.title)}" data-index="${i}">
+        <div class="gx-name">${esc(item.name)}${item.unsupported ? '<span class="gx-badge" title="Files.md shows this as plain text for now">Not displayed yet</span>' : ""}</div>
+        <div class="gx-syntax"><pre><code>${esc(item.md)}</code></pre><button class="copy-btn gx-copy" type="button">Copy</button></div>
+        <div class="gx-result markdown-body"></div>
+      </div>`).join("");
+    return `
+      <section class="gx-section">
+        <h2>${esc(section.title)}</h2>
+        <p class="gx-intro">${esc(section.intro)}</p>
+        <div class="gx-table">
+          <div class="gx-head"><span>Element</span><span>Markdown</span><span>Result</span></div>
+          ${rows}
+        </div>
+      </section>`;
+  }).join("");
+
+  page.innerHTML = `
+    <header class="wp-hero">
+      <span class="wp-mark" role="img" aria-label="Markdown logo"></span>
+      <a class="wp-link" href="${GUIDE_SOURCE.site}">markdownguide.org</a>
+    </header>
+    <div class="wp-cheatsheet">
+      <h1>Markdown cheat sheet</h1>
+      <p class="gx-lead">A quick overview of Markdown syntax. For details and edge cases, see the
+        <a href="${GUIDE_SOURCE.basicUrl}">basic syntax</a> and
+        <a href="${GUIDE_SOURCE.extendedUrl}">extended syntax</a> guides.</p>
+      ${sections}
+    </div>
+    <footer class="wp-footer">
+      <p class="wp-credit">Cheat sheet adapted from the
+        <a href="${GUIDE_SOURCE.url}">${GUIDE_SOURCE.title}</a> in
+        <a href="${GUIDE_SOURCE.site}">The Markdown Guide</a> by ${GUIDE_SOURCE.author},
+        licensed under <a href="${GUIDE_SOURCE.licenseUrl}">${GUIDE_SOURCE.license}</a>. Changes were made.</p>
+      <label class="check"><input type="checkbox" id="welcome-show" /> Show this page when Files.md starts</label>
+    </footer>`;
+  page.querySelector(".wp-mark").style.setProperty("--mark", `url("${markdownMark}")`);
+
+  // Live previews, drawn with the same renderer as documents.
+  for (const row of page.querySelectorAll(".gx-row")) {
+    const section = GUIDE.find((s) => s.title === row.dataset.section);
+    const item = section.items[Number(row.dataset.index)];
+    const out = row.querySelector(".gx-result");
+    out.innerHTML = md.render(item.md, {});
+    out.querySelectorAll("[id]").forEach((n) => n.removeAttribute("id"));
+    if (item.image) {
+      const img = out.querySelector("img");
+      if (img) { img.src = markdownMark; img.classList.add("gx-img"); }
+    }
+    for (const li of out.querySelectorAll("li")) {
+      const m = li.firstChild?.nodeType === 3 && li.firstChild.textContent.match(/^\[( |x|X)\]\s/);
+      if (m) {
+        li.firstChild.textContent = li.firstChild.textContent.slice(m[0].length);
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.disabled = true;
+        box.checked = m[1] !== " ";
+        li.prepend(box);
+        li.classList.add("task");
+      }
+    }
+    row.querySelector(".gx-copy").addEventListener("click", async (e) => {
+      const btn = e.currentTarget;
+      try { await navigator.clipboard.writeText(item.md); btn.textContent = "Copied"; } catch { btn.textContent = "Couldn't copy"; }
+      setTimeout(() => (btn.textContent = "Copy"), 1500);
+    });
+  }
+
+  page.addEventListener("click", (e) => {
+    const a = e.target.closest("a[href]");
+    if (!a) return;
+    e.preventDefault();
+    if (/^https?:/i.test(a.getAttribute("href"))) platform.openExternal(a.href);
+  });
+  $("#welcome-show").addEventListener("change", (e) => setPref("showWelcome", e.target.checked));
+}
+
 // ---------------------------------------------------------------- tabs
 
 const tabs = []; // { id, path, name, scroll, heading }
@@ -446,7 +556,7 @@ let activeTab = null;
 let tabSeq = 0;
 
 const baseName = (p) => p.split(/[\\/]/).pop();
-const samePath = (a, b) => a.toLowerCase() === b.toLowerCase();
+const samePath = (a, b) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
 
 function rememberPosition() {
   if (!activeTab) return;
@@ -498,6 +608,11 @@ async function activateTab(tab) {
   if (tab !== activeTab) rememberPosition();
   activeTab = tab;
   renderTabs();
+  document.body.classList.toggle("welcome-tab", tab.kind === "welcome");
+  if (tab.kind === "welcome") {
+    showWelcomeTab(tab);
+    return true;
+  }
   const ok = await renderDoc(tab.path, { scroll: tab.scroll, heading: tab.scroll ? null : tab.heading });
   if (ok) {
     tab.path = doc.path;
@@ -519,6 +634,7 @@ async function closeTab(tab = activeTab) {
 }
 
 function showWelcome() {
+  document.body.classList.remove("welcome-tab");
   renderTabs();
   tts.close();
   doc.path = null;
@@ -537,7 +653,7 @@ function cycleTab(step) {
 
 /** Move a tab into its own window, keeping its place in the document. */
 async function popOutTab(tab = activeTab) {
-  if (!tab) return;
+  if (!tab || tab.kind === "welcome") return;
   if (tab === activeTab) rememberPosition();
   try {
     await platform.openWindow({ paths: [tab.path], scroll: tab.scroll || 0, heading: tab.heading || null });
@@ -585,10 +701,13 @@ function renderTabs() {
 
 function showTabMenu(tab, x, y) {
   const menu = $("#tab-menu");
-  const items = [
+  const fileItems = tab.kind === "welcome" ? [] : [
     ["Move to new window", () => popOutTab(tab)],
     ["Copy file path", async () => { await navigator.clipboard.writeText(tab.path); toast("File path copied"); }],
     null,
+  ];
+  const items = [
+    ...fileItems,
     ["Close", () => closeTab(tab)],
     ["Close other tabs", () => {
       for (const t of [...tabs]) if (t !== tab) tabs.splice(tabs.indexOf(t), 1);
@@ -877,6 +996,7 @@ const actions = {
     if (paths?.length) openPaths(paths);
   },
   find() { find.open(); },
+  welcome() { openWelcome(); },
   "close-tab"() { activeTab ? closeTab() : null; },
   "next-tab"() { cycleTab(1); },
   "prev-tab"() { cycleTab(-1); },
@@ -1354,6 +1474,7 @@ async function start() {
 
   const initial = await platform.initialOpen().catch(() => null);
   if (initial?.paths?.length) await openPaths(initial.paths, { scroll: initial.scroll, heading: initial.heading });
+  else if (settings.showWelcome && platform.windowLabel() === "main") await openWelcome();
 }
 
 start();

@@ -451,7 +451,7 @@ button.primary:hover { filter: brightness(1.08); }
   color: var(--text);
   overflow-wrap: break-word;
 }
-body:not(.has-doc) .markdown-body { display: none; }
+body:not(.has-doc) #doc { display: none; }
 
 .markdown-body > :first-child { margin-top: 0; }
 
@@ -800,6 +800,89 @@ body.tts-remote-on .tts-local { display: none; }
 .small-btn:hover { background: var(--bg-hover); }
 .segmented[data-pref="ttsEngine"] button { font-size: 12px; }
 
+/* ---------------------------------------------------------------- welcome tab */
+
+.welcome-page { display: none; }
+body.welcome-tab .welcome-page { display: block; }
+body.welcome-tab .welcome, body.welcome-tab .toc, body.welcome-tab .toc-resizer { display: none; }
+
+.welcome-page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 40px 40px 64px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.welcome-page a { color: var(--link); text-decoration: none; }
+.welcome-page a:hover { text-decoration: underline; }
+
+.wp-hero { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 36px; }
+.wp-mark {
+  width: 156px;
+  height: 96px;
+  background: var(--text);
+  -webkit-mask: var(--mark) center / contain no-repeat;
+  mask: var(--mark) center / contain no-repeat;
+}
+.wp-link { font-size: 15px; font-weight: 600; }
+
+.wp-cheatsheet h1 { font-size: 24px; font-weight: 650; margin: 0 0 6px; }
+.gx-lead { color: var(--text-muted); margin: 0 0 24px; }
+.gx-section { margin-bottom: 32px; }
+.gx-section h2 { font-size: 18px; font-weight: 650; margin: 0 0 4px; }
+.gx-intro { color: var(--text-muted); margin: 0 0 12px; }
+
+.gx-table { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.gx-head, .gx-row { display: grid; grid-template-columns: 170px minmax(0, 1fr) minmax(0, 1fr); }
+.gx-head {
+  background: var(--bg-chrome);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.gx-head span { padding: 8px 14px; }
+.gx-row { border-top: 1px solid var(--border); }
+.gx-row > div { padding: 10px 14px; min-width: 0; }
+.gx-name { font-weight: 600; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.gx-badge {
+  font-size: 10.5px;
+  font-weight: 500;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+}
+.gx-syntax { position: relative; background: var(--bg-code); border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+.gx-syntax pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55; }
+.gx-copy { position: absolute; top: 6px; right: 6px; }
+.gx-row:hover .gx-copy, .gx-copy:focus-visible { opacity: 1; }
+
+.gx-result.markdown-body { max-width: none; margin: 0; padding: 10px 14px; font-size: 14px; line-height: 1.5; }
+.gx-result.markdown-body > :first-child { margin-top: 0; }
+.gx-result.markdown-body > :last-child { margin-bottom: 0; }
+.gx-result.markdown-body :is(h1, h2, h3) { margin: 0.2em 0 0.3em; scroll-margin: 0; }
+.gx-result.markdown-body h1 { font-size: 1.6em; }
+.gx-result.markdown-body h2 { font-size: 1.3em; }
+.gx-result.markdown-body h3 { font-size: 1.1em; }
+.gx-result.markdown-body hr { margin: 0.8em 0; }
+.gx-result.markdown-body pre { padding: 8px 10px; }
+.gx-result.markdown-body table { font-size: 0.9em; }
+.gx-result.markdown-body ul, .gx-result.markdown-body ol { margin-bottom: 0; }
+.gx-result .gx-img { width: 72px; height: auto; background: #24292f; padding: 8px; border-radius: 6px; }
+.gx-unsupported .gx-result { color: var(--text-faint); }
+
+.wp-footer { margin-top: 8px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 12px; }
+.wp-credit { margin: 0 0 12px; }
+
+@media (max-width: 760px) {
+  .welcome-page { padding: 28px 18px 48px; }
+  .gx-head { display: none; }
+  .gx-row { grid-template-columns: 1fr; }
+  .gx-syntax { border: 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+}
+
 /* ---------------------------------------------------------------- about & support */
 
 .support-line { margin-top: 28px; font-size: 12px; color: var(--text-faint); }
@@ -859,7 +942,7 @@ dialog:has(.about) { max-width: 560px; }
     --hl-meta: #1f6feb; --hl-tag: #116329; --hl-add-bg: #dafbe1; --hl-del-bg: #ffebe9;
   }
   html, body { height: auto; overflow: visible; background: #fff; }
-  .menubar, .tabbar, .ctx-menu, .find-bar, .toc, .toc-resizer, .prefs, .welcome, .drop-overlay, .toast,
+  .menubar, .tabbar, .ctx-menu, .find-bar, .welcome-page, .toc, .toc-resizer, .prefs, .welcome, .drop-overlay, .toast,
   .tts-bar, .code-bar, dialog { display: none !important; }
   .layout, .main-col, .content { display: block; height: auto; overflow: visible; }
   .markdown-body { max-width: none; padding: 0; font-size: 11pt; }

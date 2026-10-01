@@ -19,6 +19,7 @@ Files.md fills that gap. It's a small, portable Windows app that does one job we
 ## Features
 
 
+- **Welcome tab with a Markdown cheat sheet:** every element with its syntax, a Copy button, and a live preview (turn it off from the page itself; reopen it from Help → Welcome)
 - **Readable by default:** light, dark, or match Windows; adjustable font, text size, line spacing, and page width
 - **Headings pane:** jump to any heading, current section highlighted as you scroll
 - **Find in document:** Ctrl+F searches the whole text, with every match highlighted
@@ -102,4 +103,4 @@ Files.md collects no data. It makes no network requests of its own and has no te
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE), except the Markdown cheat sheet on the Welcome tab (`src/welcome-guide.js`), which is adapted from the [Markdown Cheat Sheet](https://www.markdownguide.org/cheat-sheet/) in [The Markdown Guide](https://www.markdownguide.org) by Matt Cone and licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
