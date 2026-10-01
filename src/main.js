@@ -6,6 +6,11 @@ import dos from "highlight.js/lib/languages/dos";
 import nginx from "highlight.js/lib/languages/nginx";
 import protobuf from "highlight.js/lib/languages/protobuf";
 import { platform } from "./platform.js";
+import bmcLogo from "./assets/bmc-logo.png";
+import bmcQr from "./assets/bmc-qr.png";
+
+const SUPPORT_URL = "https://buymeacoffee.com/8i0sxlpmdy";
+const REPO_URL = "https://github.com/garrettds11/files-md";
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
@@ -23,6 +28,7 @@ const DEFAULTS = {
   tocWidth: 260,
   wrapCode: false,
   syntax: true,
+  showSupport: true,
   ttsEngine: "local", // local | remote
   ttsVoice: "",
   ttsRate: 1,
@@ -105,6 +111,7 @@ function applySettings() {
   document.body.classList.toggle("wrap-code", settings.wrapCode);
   document.body.classList.toggle("editor-custom", settings.editor === "custom");
   document.body.classList.toggle("tts-remote-on", settings.ttsEngine === "remote");
+  document.body.classList.toggle("hide-support", !settings.showSupport);
   const names = { notepad: "Notepad", vscode: "VS Code", notepadpp: "Notepad++" };
   const customName = settings.editorPath.split(/[\\/]/).pop().replace(/\.exe$/i, "");
   for (const el of $$(".editor-name")) el.textContent = names[settings.editor] || customName || "editor";
@@ -971,9 +978,32 @@ const actions = {
       <p>If you move the .exe later, repeat these steps.</p>`);
   },
   about() {
-    showDialog(`<h2>Files.md</h2><p>Version 0.3.1</p>
-      <p>A clean, portable Markdown reader for Windows.</p>
-      <p><a href="https://github.com/garrettds11/files-md" data-external>github.com/garrettds11/files-md</a></p>`);
+    showDialog(`<div class="about">
+      <h2>Files.md</h2>
+      <p class="about-version">Version ${__APP_VERSION__}</p>
+      <h3>Why Files.md?</h3>
+      <p>Markdown is one of the fastest ways to write documentation: it's plain text, easy to learn, and readable even before it's formatted. But reading it well is harder than it should be. Browsers still don't render <code>.md</code> files natively; they show the raw text. Your options are usually a browser extension, which needs permissions and a browser, or a full editor, which is more tool than you need just to read.</p>
+      <p>Files.md fills that gap. It's a small, portable Windows app that does one job well: open a Markdown file and present it cleanly, with a headings pane for navigation, find, read-aloud, and printing. No installer, no account, and nothing leaves your computer unless you ask it to.</p>
+      <p class="about-links">
+        <a href="${REPO_URL}" data-external>GitHub</a>
+        <span aria-hidden="true">·</span>
+        <a href="${REPO_URL}/releases" data-external>Releases</a>
+        <span aria-hidden="true">·</span>
+        <a href="${REPO_URL}/issues" data-external>Report an issue</a>
+      </p>
+      <p class="about-support support-only"><img src="${bmcLogo}" alt="" width="20" height="20" /><span>If Files.md is useful to you, you can <a href="#" data-action="support">buy me a coffee</a>.</span></p>
+      <p class="about-license">Free and open source under the MIT License.</p>
+    </div>`);
+  },
+  support() {
+    showDialog(`<div class="support">
+      <img class="support-logo" src="${bmcLogo}" alt="" width="48" height="48" />
+      <h2>Support Files.md</h2>
+      <p>Files.md is free and always will be. If it saves you time, a coffee helps keep it going.</p>
+      <a class="support-btn" href="${SUPPORT_URL}" data-external>Buy me a coffee ☕</a>
+      <div class="support-qr"><img src="${bmcQr}" alt="QR code for buymeacoffee.com/8i0sxlpmdy" width="168" height="168" /></div>
+      <p class="support-hint">Scan with your phone, or use the button above.<br /><span>${SUPPORT_URL.replace("https://", "")}</span></p>
+    </div>`);
   },
 };
 

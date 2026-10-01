@@ -2,11 +2,22 @@
 
 A clean, portable Markdown reader for Windows. One `.exe`, no installer.
 
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/8i0sxlpmdy)
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
   <source media="(prefers-color-scheme: light)" srcset="docs/screenshot-light.png">
   <img alt="Files.md showing a document in a tab, with the headings pane, the Preferences panel, and the read-aloud player" src="docs/screenshot-light.png">
 </picture>
+
+## Why Files.md?
+
+Markdown is one of the fastest ways to write documentation: it's plain text, easy to learn, and readable even before it's formatted. But reading it well is harder than it should be. Browsers still don't render `.md` files natively; they show the raw text. Your options are usually a browser extension, which needs permissions and a browser, or a full editor, which is more tool than you need just to read.
+
+Files.md fills that gap. It's a small, portable Windows app that does one job well: open a Markdown file and present it cleanly, with a headings pane for navigation, find, read-aloud, and printing. No installer, no account, and nothing leaves your computer unless you ask it to.
+
+## Features
+
 
 - **Readable by default:** light, dark, or match Windows; adjustable font, text size, line spacing, and page width
 - **Headings pane:** jump to any heading, current section highlighted as you scroll
@@ -75,13 +86,17 @@ npx tauri build --no-bundle          # portable exe -> src-tauri/target/release/
 
 Releases are built by GitHub Actions. To release, bump `version` in `src-tauri/tauri.conf.json` (and `package.json` / `src-tauri/Cargo.toml`) and push to `main`. The workflow builds `files-md.exe`, creates the `v<version>` tag, and publishes the release.
 
+## Support
+
+Files.md is free and open source. If it's useful to you, you can [buy me a coffee](https://buymeacoffee.com/8i0sxlpmdy) (also in the app under **Help → Support Files.md**). Don't want to see the link? Turn off **Show "Buy me a coffee" link** in Preferences.
+
 ## Code signing
 
 Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
 
 ## Privacy
 
-Files.md collects no data. It makes no network requests of its own and has no telemetry, analytics, or update checks. It only reads the files you open, and it stores your preferences in `files-md.settings.json` next to the exe on your own computer. Links in a document open in your web browser only when you click them, and remote images in a document are loaded from their websites when shown.
+Files.md collects no data. It makes no network requests of its own and has no telemetry, analytics, or update checks. It only reads the files you open, and it stores your preferences in `files-md.settings.json` next to the exe on your own computer. Links in a document open in your web browser only when you click them, and remote images in a document are loaded from their websites when shown. The "Buy me a coffee" link likewise opens your browser only when clicked; its logo and QR code are built into the app.
 
 **Read aloud.** By default, read aloud uses the voices built into Windows and runs entirely on your computer; nothing is sent anywhere. If you choose **Remote service** in Preferences, the text of the document you're listening to is sent to the speech endpoint you configure (for example, OpenAI), and that provider's privacy policy applies. Remote speech is off unless you turn it on. Your API key is stored in plain text in the settings file. Generated audio is cached in `%LOCALAPPDATA%\io.github.garrettds11.filesmd\tts-cache`, named by an MD5 hash of the text and voice settings; clear it any time from Preferences.
 

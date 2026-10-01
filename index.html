@@ -52,6 +52,8 @@
         <div class="menu-list" role="menu">
           <button data-action="shortcuts">Keyboard shortcuts</button>
           <button data-action="set-default">Make default for .md files…</button>
+          <hr />
+          <button data-action="support">Support Files.md…</button>
           <button data-action="about">About Files.md</button>
         </div>
       </div>
@@ -110,6 +112,7 @@
           <p>Open a Markdown file to start reading.</p>
           <button class="primary" data-action="open">Open file…</button>
           <p class="hint">or drop a <code>.md</code> file anywhere on this window</p>
+          <p class="support-line">Enjoying Files.md? <a href="#" data-action="support">Buy me a coffee ☕</a></p>
         </section>
       </main>
       <div class="tts-bar" id="tts-bar" role="region" aria-label="Read aloud">
@@ -183,6 +186,7 @@
         <label class="check"><input type="checkbox" data-pref="syntax" /> Color code blocks by language</label>
         <label class="check"><input type="checkbox" data-pref="wrapCode" /> Wrap long code lines</label>
         <label class="check"><input type="checkbox" data-pref="autoReload" /> Reload when the file changes</label>
+        <label class="check"><input type="checkbox" data-pref="showSupport" /> Show "Buy me a coffee" link</label>
         <h3 class="prefs-section">Read aloud</h3>
         <label class="field">
           <span>Speech engine</span>
