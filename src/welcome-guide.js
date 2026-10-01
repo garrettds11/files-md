@@ -6,7 +6,7 @@
  * Licensed under CC BY-SA 4.0: https://creativecommons.org/licenses/by-sa/4.0/
  *
  * Changes: reorganized into name / syntax / preview rows, light wording edits,
- * notes on which extended elements Files.md displays, and a local example image.
+ * and a local example image.
  * This file (and only this file) is licensed under CC BY-SA 4.0. The rest of
  * Files.md is MIT-licensed.
  */
@@ -47,15 +47,15 @@ export const GUIDE = [
     items: [
       { name: "Table", md: "| Syntax | Description |\n| ----------- | ----------- |\n| Header | Title |\n| Paragraph | Text |" },
       { name: "Fenced code block", md: '```\n{\n  "firstName": "John",\n  "lastName": "Smith",\n  "age": 25\n}\n```' },
-      { name: "Footnote", md: "Here's a sentence with a footnote. [^1]\n\n[^1]: This is the footnote.", unsupported: true },
-      { name: "Heading ID", md: "### My Great Heading {#custom-id}", unsupported: true },
-      { name: "Definition list", md: "term\n: definition", unsupported: true },
+      { name: "Footnote", md: "Here's a sentence with a footnote. [^1]\n\n[^1]: This is the footnote." },
+      { name: "Heading ID", md: "### My Great Heading {#custom-id}" },
+      { name: "Definition list", md: "term\n: definition" },
       { name: "Strikethrough", md: "~~The world is flat.~~" },
       { name: "Task list", md: "- [x] Write the press release\n- [ ] Update the website\n- [ ] Contact the media" },
-      { name: "Emoji", md: "That is so funny! :joy:", unsupported: true },
-      { name: "Highlight", md: "I need to highlight these ==very important words==.", unsupported: true },
-      { name: "Subscript", md: "H~2~O", unsupported: true },
-      { name: "Superscript", md: "X^2^", unsupported: true },
+      { name: "Emoji", md: "That is so funny! :joy:" },
+      { name: "Highlight", md: "I need to highlight these ==very important words==." },
+      { name: "Subscript", md: "H~2~O" },
+      { name: "Superscript", md: "X^2^" },
     ],
   },
 ];

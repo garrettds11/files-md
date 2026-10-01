@@ -1,4 +1,10 @@
 import MarkdownIt from "markdown-it";
+import footnote from "markdown-it-footnote";
+import deflist from "markdown-it-deflist";
+import { full as emoji } from "markdown-it-emoji";
+import mark from "markdown-it-mark";
+import sub from "markdown-it-sub";
+import sup from "markdown-it-sup";
 import hljs from "highlight.js/lib/common";
 import powershell from "highlight.js/lib/languages/powershell";
 import dockerfile from "highlight.js/lib/languages/dockerfile";
@@ -187,6 +193,9 @@ const md = new MarkdownIt({
   },
 });
 
+// Extended syntax: footnotes, definition lists, :emoji:, ==highlight==, H~2~O, X^2^.
+md.use(footnote).use(deflist).use(emoji).use(mark).use(sub).use(sup);
+
 // Only auto-link full URLs (https://…). Without this, "README.md"
 // becomes a link, because .md is a top-level domain.
 md.linkify.set({ fuzzyLink: false, fuzzyEmail: false });
@@ -210,11 +219,20 @@ md.core.ruler.push("heading_ids", (state) => {
     const t = tokens[i];
     if (t.type !== "heading_open") continue;
     const inline = tokens[i + 1];
+    // Custom heading ID: "### My Great Heading {#custom-id}"
+    let custom = null;
+    const last = inline.children[inline.children.length - 1];
+    const m = last?.type === "text" && last.content.match(/\s*\{#([A-Za-z][\w-]*)\}\s*$/);
+    if (m) {
+      custom = m[1];
+      last.content = last.content.slice(0, m.index);
+    }
     const text = inline.children
       .filter((c) => c.type === "text" || c.type === "code_inline")
       .map((c) => c.content)
-      .join("");
-    let id = slugify(text);
+      .join("")
+      .trim();
+    let id = custom || slugify(text);
     const n = used.get(id) || 0;
     used.set(id, n + 1);
     if (n) id = `${id}-${n}`;
@@ -473,8 +491,8 @@ function buildWelcomePage() {
   const esc = escapeHtml;
   const sections = GUIDE.map((section) => {
     const rows = section.items.map((item, i) => `
-      <div class="gx-row${item.unsupported ? " gx-unsupported" : ""}" data-section="${esc(section.title)}" data-index="${i}">
-        <div class="gx-name">${esc(item.name)}${item.unsupported ? '<span class="gx-badge" title="Files.md shows this as plain text for now">Not displayed yet</span>' : ""}</div>
+      <div class="gx-row" data-section="${esc(section.title)}" data-index="${i}">
+        <div class="gx-name">${esc(item.name)}</div>
         <div class="gx-syntax"><pre><code>${esc(item.md)}</code></pre><button class="copy-btn gx-copy" type="button">Copy</button></div>
         <div class="gx-result markdown-body"></div>
       </div>`).join("");
