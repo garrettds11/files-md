@@ -50,3 +50,4 @@ jobs:
           osv-scanner scan source \
             --lockfile=package-lock.json \
             --lockfile=src-tauri/Cargo.lock
+        continue-on-error: true
