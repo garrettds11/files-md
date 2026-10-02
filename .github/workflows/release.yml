@@ -95,4 +95,5 @@ jobs:
         shell: pwsh
         run: |
           gh release create "$env:TAG" out/files-md.exe out/files-md.exe.sha256 `
-            --target "${{ github.sha }}" --title "Files.md $env:TAG" --generate-notes
+            --target "${{ github.sha }}" --title "Files.md $env:TAG" --generate-notes `
+            --notes "Download ``files-md.exe`` below. It's portable: no installer, just run it.`n"
