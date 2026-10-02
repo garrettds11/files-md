@@ -1,53 +1,63 @@
 
-name: OSV Dependency Scan
+name: OSV Dependency Security
 
 on:
   push:
-    branches: [main]
-    paths:
-      - "package.json"
-      - "package-lock.json"
-      - "src-tauri/Cargo.toml"
-      - "src-tauri/Cargo.lock"
-      - ".github/workflows/osv-scanner.yml"
+    branches:
+      - main
 
   pull_request:
-    paths:
-      - "package.json"
-      - "package-lock.json"
-      - "src-tauri/Cargo.toml"
-      - "src-tauri/Cargo.lock"
-      - ".github/workflows/osv-scanner.yml"
+    branches:
+      - main
 
   schedule:
+    # Every Monday at 09:00 UTC
     - cron: "0 9 * * 1"
 
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
+  security-events: write
 
 jobs:
-  osv-scan:
-    name: Scan dependencies
-    runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+  # Full repository vulnerability assessment
+  scan-full:
+    name: Full Dependency Scan
 
-      - name: Install OSV-Scanner
-        run: |
-          curl -fsSL \
-            https://raw.githubusercontent.com/google/osv-scanner/main/install.sh \
-            -o install-osv.sh
+    if: >
+      github.event_name == 'push' ||
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch'
 
-          sh install-osv.sh
-          osv-scanner --version
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.6.0
 
-      - name: Scan npm and Cargo dependencies
-        run: |
-          osv-scanner scan source \
-            --lockfile=package-lock.json \
-            --lockfile=src-tauri/Cargo.lock
-        continue-on-error: true
+    with:
+      scan-args: |-
+        --recursive
+        ./
+
+      upload-sarif: true
+
+      # Report vulnerabilities without failing the job.
+      fail-on-vuln: false
+
+  # Identify vulnerabilities introduced by a PR
+  scan-pr:
+    name: Pull Request Dependency Scan
+
+    if: github.event_name == 'pull_request'
+
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@v2.6.0
+
+    with:
+      scan-args: |-
+        --recursive
+        ./
+
+      upload-sarif: true
+
+      # Initially report rather than enforce.
+      fail-on-vuln: false
