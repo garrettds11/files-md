@@ -155,6 +155,20 @@ export const platform = {
     return opener.openUrl(url);
   },
 
+  /** Open a local file with its default Windows app. */
+  async openPath(path) {
+    if (!isTauri) throw new Error("Opening local files only works in the desktop app");
+    const { opener } = await loadTauri();
+    return opener.openPath(path);
+  },
+
+  /** Show a file selected in File Explorer. */
+  async revealFile(path) {
+    if (!isTauri) throw new Error("Only works in the desktop app");
+    const { opener } = await loadTauri();
+    return opener.revealItemInDir(path);
+  },
+
   async print() {
     if (!isTauri) return window.print();
     const { core } = await loadTauri();

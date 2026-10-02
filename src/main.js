@@ -196,9 +196,32 @@ const md = new MarkdownIt({
 // Extended syntax: footnotes, definition lists, :emoji:, ==highlight==, H~2~O, X^2^.
 md.use(footnote).use(deflist).use(emoji).use(mark).use(sub).use(sup);
 
-// Only auto-link full URLs (https://…). Without this, "README.md"
-// becomes a link, because .md is a top-level domain.
-md.linkify.set({ fuzzyLink: false, fuzzyEmail: false });
+// Auto-link the way GitHub does: full URLs (https://…), www. addresses, and
+// email addresses. Bare names like "README.md" or "notes.txt" stay text,
+// even though .md and others are real web domains.
+md.linkify.set({ fuzzyLink: true, fuzzyEmail: true });
+md.core.ruler.after("linkify", "linkify_like_github", (state) => {
+  for (const block of state.tokens) {
+    if (block.type !== "inline" || !block.children) continue;
+    const out = [];
+    const kids = block.children;
+    for (let i = 0; i < kids.length; i++) {
+      const t = kids[i];
+      if (t.type === "link_open" && t.markup === "linkify") {
+        const text = kids[i + 1]?.content || "";
+        const keep = /^[a-z][a-z0-9+.-]*:\/\//i.test(text) || /^www\./i.test(text) || /^mailto:/i.test(text) || /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(text);
+        if (!keep) {
+          // Drop link_open / link_close, keep the text.
+          out.push(kids[i + 1]);
+          i += 2;
+          continue;
+        }
+      }
+      out.push(t);
+    }
+    block.children = out;
+  }
+});
 
 function slugify(text) {
   return (
@@ -294,7 +317,10 @@ async function renderDoc(path, { keepScroll = false, scroll = 0, heading = null 
   platform.setTitle(`${file.name} — Files.md`);
   buildToc();
   content.scrollTop = scroll;
-  if (heading) document.getElementById(heading)?.scrollIntoView({ block: "start" });
+  if (heading && document.getElementById(heading)) {
+    document.getElementById(heading).scrollIntoView({ block: "start" });
+    flashHeading(heading);
+  }
   updateActiveHeading();
 
   tts.documentChanged();
@@ -766,6 +792,12 @@ async function openPaths(paths, opts = {}) {
 }
 
 function fixupContent(article) {
+  // Hovering a link shows where it goes.
+  for (const a of article.querySelectorAll("a[href]")) {
+    const href = a.getAttribute("href");
+    if (!a.title && href && !href.startsWith("#")) a.title = isExternal(href) ? href : decodeURI(href);
+  }
+
   // Code blocks: language label + Copy button.
   for (const pre of article.querySelectorAll("pre")) {
     const code = pre.querySelector("code");
@@ -829,25 +861,52 @@ function fixupContent(article) {
   }
 }
 
+// Programs and scripts are never launched from a document link; their folder
+// is opened instead, so a malicious .md file can't run anything.
+const RISKY_FILE = /\.(exe|com|bat|cmd|ps1|psm1|vbs|vbe|js|jse|wsf|wsh|msi|msp|scr|hta|cpl|lnk|reg|jar|appref-ms)$/i;
+
+async function followLink(a, e) {
+  const href = a.getAttribute("href");
+  if (!href) return;
+  const newTab = e.ctrlKey || e.metaKey || e.button === 1;
+  try {
+    if (href.startsWith("#")) {
+      scrollToHeading(decodeURIComponent(href.slice(1)));
+    } else if (isExternal(href)) {
+      if (!/^(https?|mailto|tel):/i.test(href)) return toast(`Files.md doesn't open ${href.split(":")[0]}: links`);
+      await platform.openExternal(href);
+    } else if (doc.dir) {
+      const [file, hash] = href.split("#");
+      const target = file ? joinPath(doc.dir, decodeURI(file)) : doc.path;
+      if (/\.(md|markdown|mdown|mkd|mkdn|mdx|txt)$/i.test(target)) {
+        await openFile(target, { replace: !newTab, heading: hash ? decodeURIComponent(hash) : null });
+      } else if (RISKY_FILE.test(target)) {
+        await platform.revealFile(target);
+        toast("Programs aren't opened from links. Its folder was opened instead.");
+      } else {
+        await platform.openPath(target);
+      }
+    }
+  } catch (err) {
+    toast(`Couldn't open the link: ${err?.message || err}`);
+  }
+}
+
 $("#doc").addEventListener("click", (e) => {
   const a = e.target.closest("a[href]");
   if (!a) return;
   e.preventDefault();
-  const href = a.getAttribute("href");
-  if (href.startsWith("#")) {
-    scrollToHeading(decodeURIComponent(href.slice(1)));
-  } else if (isExternal(href)) {
-    platform.openExternal(href);
-  } else if (doc.dir) {
-    const [file, hash] = href.split("#");
-    const target = joinPath(doc.dir, decodeURI(file));
-    if (/\.(md|markdown|mdown|mkd|mkdn|mdx|txt)$/i.test(file)) {
-      const newTab = e.ctrlKey || e.metaKey || e.button === 1;
-      openFile(target, { replace: !newTab, heading: hash ? decodeURIComponent(hash) : null });
-    } else {
-      platform.openExternal(target);
-    }
-  }
+  followLink(a, e);
+});
+// Middle-click a link: same as Ctrl+click.
+$("#doc").addEventListener("auxclick", (e) => {
+  const a = e.target.closest("a[href]");
+  if (!a || e.button !== 1) return;
+  e.preventDefault();
+  followLink(a, e);
+});
+$("#doc").addEventListener("mousedown", (e) => {
+  if (e.button === 1 && e.target.closest("a[href]")) e.preventDefault(); // no autoscroll
 });
 
 // ---------------------------------------------------------------- headings pane
@@ -892,8 +951,14 @@ $("#toc-list").addEventListener("click", (e) => {
 
 function scrollToHeading(id) {
   const el = document.getElementById(id);
-  if (!el) return;
+  if (!el) return toast(`No heading "${id}" in this document`);
   el.scrollIntoView({ behavior: "smooth", block: "start" });
+  flashHeading(id);
+}
+
+function flashHeading(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
   el.classList.remove("flash");
   void el.offsetWidth;
   el.classList.add("flash");

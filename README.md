@@ -23,6 +23,7 @@ Files.md fills that gap. It's a small, portable Windows app that does one job we
 - **Readable by default:** light, dark, or match Windows; adjustable font, text size, line spacing, and page width
 - **Headings pane:** jump to any heading, current section highlighted as you scroll
 - **Find in document:** Ctrl+F searches the whole text, with every match highlighted
+- **Clickable links:** web links, `www.` addresses, and emails open in your browser or mail app; links to other `.md` files open in Files.md (Ctrl+click for a new tab); links to other local files open in their default app
 - **Opens how you'd expect:** double-click a `.md` file, drag files onto the window, or File → Open
 - **Tabs and windows:** open several files at once; files opened from Explorer become tabs in the running app instead of new copies. Right-click a tab and choose **Move to new window** to give it its own window; settings stay in sync across windows
 - **Full Markdown support:** everything in the basic syntax plus tables, task lists, strikethrough, footnotes, definition lists, custom heading IDs, `:emoji:` shortcodes, ==highlight==, subscript, and superscript
