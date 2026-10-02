@@ -95,7 +95,8 @@ Files.md is free and open source. If it's useful to you, you can [buy me a coffe
 
 ## Code signing
 
-Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+Code signing NOT YET provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+This app code is running UNSIGNED code for now!
 
 ## Privacy
 
