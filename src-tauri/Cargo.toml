@@ -1,6 +1,6 @@
 [package]
 name = "files-md"
-version = "0.5.2"
+version = "0.5.3"
 description = "A clean, portable Markdown reader for Windows"
 authors = ["garrettds11"]
 license = "MIT"
