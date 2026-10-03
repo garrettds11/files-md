@@ -301,6 +301,15 @@ body.has-tabs .tabbar { display: flex; }
   height: 29px;
 }
 .tab-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab.dragging {
+  position: relative;
+  z-index: 3;
+  background: var(--bg);
+  border-color: var(--border-strong);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  cursor: grabbing;
+}
+body.tab-dragging, body.tab-dragging * { cursor: grabbing !important; user-select: none; }
 .tab-close {
   display: grid;
   place-items: center;

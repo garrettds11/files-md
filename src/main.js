@@ -733,7 +733,11 @@ function renderTabs() {
     el.addEventListener("mousedown", (e) => {
       if (e.button === 1) { e.preventDefault(); closeTab(tab); }
     });
-    el.addEventListener("click", () => tab !== activeTab && activateTab(tab));
+    el.addEventListener("click", () => {
+      if (suppressTabClick) { suppressTabClick = false; return; }
+      if (tab !== activeTab) activateTab(tab);
+    });
+    el.addEventListener("pointerdown", (e) => startTabDrag(e, el));
     el.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       showTabMenu(tab, e.clientX, e.clientY);
@@ -741,6 +745,88 @@ function renderTabs() {
     bar.appendChild(el);
     if (tab === activeTab) requestAnimationFrame(() => el.scrollIntoView({ block: "nearest", inline: "nearest" }));
   }
+}
+
+// ---- drag a tab to reorder (pointer events; HTML drag-and-drop is taken by
+// the window's file-drop handling)
+let suppressTabClick = false;
+
+function startTabDrag(e, el) {
+  if (e.button !== 0 || e.target.closest(".tab-close")) return;
+  const bar = $("#tab-list");
+  const startX = e.clientX;
+  const grab = startX - el.getBoundingClientRect().left;
+  let moved = false;
+  let lastX = startX;
+  let scrollTimer = 0;
+
+  const place = () => {
+    el.style.transform = "";
+    const left = el.getBoundingClientRect().left;
+    const barBox = bar.getBoundingClientRect();
+    const target = Math.min(Math.max(lastX - grab, barBox.left), barBox.right - el.offsetWidth);
+    el.style.transform = `translateX(${target - left}px)`;
+  };
+
+  const reorder = () => {
+    const prev = el.previousElementSibling;
+    const next = el.nextElementSibling;
+    if (next) {
+      const r = next.getBoundingClientRect();
+      if (lastX > r.left + r.width / 2) bar.insertBefore(next, el);
+    }
+    if (prev) {
+      const r = prev.getBoundingClientRect();
+      if (lastX < r.left + r.width / 2) bar.insertBefore(el, prev);
+    }
+  };
+
+  // Scroll the tab strip when dragging near its edges.
+  const edgeScroll = () => {
+    const box = bar.getBoundingClientRect();
+    const step = lastX < box.left + 30 ? -10 : lastX > box.right - 30 ? 10 : 0;
+    if (step) {
+      bar.scrollLeft += step;
+      reorder();
+      place();
+    }
+    scrollTimer = requestAnimationFrame(edgeScroll);
+  };
+
+  const move = (ev) => {
+    lastX = ev.clientX;
+    if (!moved) {
+      if (Math.abs(lastX - startX) < 5) return;
+      moved = true;
+      el.setPointerCapture(ev.pointerId);
+      el.classList.add("dragging");
+      document.body.classList.add("tab-dragging");
+      hideTabMenu();
+      scrollTimer = requestAnimationFrame(edgeScroll);
+    }
+    reorder();
+    place();
+  };
+
+  const end = () => {
+    el.removeEventListener("pointermove", move);
+    el.removeEventListener("pointerup", end);
+    el.removeEventListener("pointercancel", end);
+    cancelAnimationFrame(scrollTimer);
+    if (!moved) return;
+    suppressTabClick = true;
+    setTimeout(() => (suppressTabClick = false), 0);
+    el.style.transform = "";
+    el.classList.remove("dragging");
+    document.body.classList.remove("tab-dragging");
+    // Apply the new on-screen order to the tab list.
+    const order = [...bar.children].map((c) => Number(c.dataset.id));
+    tabs.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  };
+
+  el.addEventListener("pointermove", move);
+  el.addEventListener("pointerup", end);
+  el.addEventListener("pointercancel", end);
 }
 
 function showTabMenu(tab, x, y) {
